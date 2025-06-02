@@ -1,0 +1,35 @@
+library(INLA)
+library(sf)
+# ip <- rownames(installed.packages())
+# if (!"remotes" %in% ip) {
+#   install.packages("remotes")
+# }
+# if (!"INLA" %in% ip) {
+#   install.packages(
+#     "INLA", 
+#     repos = c(getOption("repos"), "https://inla.r-inla-download.org/R/stable")
+#   )
+# }
+# remotes::install_github("inbo/inlatools")
+library(inlatools)
+library(spData)
+library(mapview)
+library(spdep)
+library(stats)
+library(ggdag)
+library(gridExtra)
+library(devtools)
+library(tidyverse)
+library(lattice)
+library(terra)
+# library(ggregplot)
+library(magrittr)
+library(sjPlot)
+library(utils)
+library(spdep)
+library(gstat)
+library(GGally)
+library(viridis)
+library(leafsync)
+library(grid)
+library(patchwork)
