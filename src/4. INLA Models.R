@@ -13,12 +13,12 @@ result_folder <- './results/all_pois'
 # ============================================================================
 # 1. Data Loading and Preparation
 # ============================================================================
-df <- read.csv("./data/gdf_final_1200.csv")
+df <- read.csv("./data/confidential/gdf_final_1200.csv")
 df
 # df_urban <- read.csv("./data/gdf_final_1200_urban.csv")
-ch_shp <- st_read('./data/canton_gecontour.GeoJSON', quiet = TRUE)
-canton_ge <- st_read('./data/canton_ge.GeoJSON', quiet = TRUE)
-communes_shp <- st_read("./data/communes_ge.GeoJSON", quiet = TRUE)
+ch_shp <- st_read('./data/input/canton_gecontour.GeoJSON', quiet = TRUE)
+canton_ge <- st_read('./data/input/canton_ge.GeoJSON', quiet = TRUE)
+communes_shp <- st_read("./data/input/communes_ge.GeoJSON", quiet = TRUE)
 
 
 data_list <- load_data()
