@@ -24,3 +24,4 @@ src/.env
 .env.staging
 credentials.json
 secrets.yml
+.Rhistory
