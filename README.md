@@ -23,14 +23,17 @@ Key research questions:
 │   ├── Rhistory/           # R command history
 │   ├── src.Rproj           # R project file
 │   ├── load_packages.R     # Package loading and environment setup
-│   ├── 4. INLA Models.R    # Bayesian spatial models with SPDE approach
 │   ├── make_tables_15min.R # Table generation and descriptive statistics
 │   ├── utils.R             # Utility functions for analysis and visualization
 │   ├── 1. OSM POI extraction and cleaning.ipynb     # OpenStreetMap POI extraction and classification
 │   ├── 2. Accessibility metrics computation.ipynb   # Proximity time calculations and spatial analysis
 │   └── 3. Association with physical activity.ipynb # Physical activity analysis and modeling
+│   ├── 4. INLA Models.R    # Bayesian spatial models with SPDE approach
 ├── cache/                  # Cached data and intermediate results
-├── data/                   # Data files (gitignored)
+├── data/                   # Data files
+│   ├── input/              # Non-sensitive public input files
+│   ├── output/             # Non-sensitive public output files
+│   ├── confidential/       # Health data (.gitignore)
 ├── manuscript/             # Manuscript files and drafts
 ├── results/                # Output files and figures (gitignored)
 ├── .gitignore              # Git ignore specifications
