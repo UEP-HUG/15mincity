@@ -9,7 +9,8 @@ src/cache/
 src/llm-cache/
 src/archives/
 docs/
-data/
+data/confidential/
+data/output/
 results/
 manuscript/
 Cache/
