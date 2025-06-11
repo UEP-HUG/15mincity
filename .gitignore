@@ -10,7 +10,7 @@ src/llm-cache/
 src/archives/
 docs/
 data/confidential/
-data/output/
+data/output/*
 data/input/GML_AGGLO_CARREAU_200/
 results/
 manuscript/
