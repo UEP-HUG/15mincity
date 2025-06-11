@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns:fme="http://www.safe.com/gml/fme" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.safe.com/gml/fme" elementFormDefault="qualified">
+<import namespace="http://www.opengis.net/gml" schemaLocation="http://schemas.opengis.net/gml/3.1.1/base/gml.xsd"/>
+<element name="AGGLO_CARREAU_200" type="fme:AGGLO_CARREAU_200Type" substitutionGroup="gml:_Feature"/>
+<complexType name="AGGLO_CARREAU_200Type">
+<complexContent>
+<extension base="gml:AbstractFeatureType">
+<sequence>
+<element name="OBJECTID" minOccurs="0" type="int"/>
+<element name="GRID_ID" minOccurs="0">
+<simpleType>
+<restriction base="string">
+<maxLength value="12"/>
+</restriction>
+</simpleType></element>
+<element name="PARTEMP" minOccurs="0" type="double"/>
+<element name="HORSPERIMETREGG" minOccurs="0" type="short"/>
+<element name="DENSITE_POP_HA" minOccurs="0" type="double"/>
+<element name="DENSITE_EMP_HA" minOccurs="0" type="double"/>
+<element name="POP_TOT_GG_2015" minOccurs="0" type="int"/>
+<element name="EMP_TOT_GG_15_20" minOccurs="0" type="int"/>
+<element name="POP_TOT_GG_2019" minOccurs="0" type="int"/>
+<element name="EMP_TOT_GG_19_20" minOccurs="0" type="int"/>
+<element name="GEOM" minOccurs="0">
+<complexType>
+<sequence>
+<element name="AREA" minOccurs="0" type="double"/>
+<element name="LEN" minOccurs="0" type="double"/>
+</sequence>
+</complexType>
+</element>
+<element ref="gml:surfaceProperty" minOccurs="0"/>
+<element ref="gml:multiSurfaceProperty" minOccurs="0"/>
+</sequence>
+</extension>
+</complexContent>
+</complexType>
+</schema>
