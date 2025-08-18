@@ -111,13 +111,58 @@ The analysis uses the following main libraries:
 
 The analysis integrates multiple data sources:
 
-- **Physical Activity**: Bus Santé study (2005-2024, n=13,146 participants)
-- **Points of Interest**: OpenStreetMap (9 categories, >10,000 POIs)
-- **Population Data**: SITG/INSEE/SFSO population grids
-- **Networks**: OSMnx pedestrian network extraction
-- **Administrative**: Canton of Geneva boundaries
+### Health Outcomes
 
-*Note: Individual-level data is not included due to privacy concerns.*
+**Bus Santé Study** : Population-based cross-sectional study (2005-2024, n=13,146 participants)
+
+- Institution: Geneva University Hospitals & University of Geneva
+- Access: Available upon request via corresponding author
+- Ethics: Approved by Commission cantonale d'éthique de la recherche (CER-GE), authorization no. 2016-00363
+
+*Note: Data is not included due to privacy concerns.*
+
+### Built Environment Data
+
+**Points of Interest**: OpenStreetMap (© OpenStreetMap contributors, 2025)
+
+- Content: 9 categories, >10,000 POIs across Canton of Geneva + 4km buffer
+- Extraction Date: March 13, 2025
+- License: Open Database License (ODbL)
+- Attribution: © OpenStreetMap contributors
+- Source: https://www.openstreetmap.org/
+
+
+**Pedestrian Network**: OpenStreetMap (© OpenStreetMap contributors, 2025)
+
+- Coverage: Comprehensive walkable street network within Canton of Geneva + 4km buffer
+- Extraction Date: March 13, 2025
+- License: Open Database License (ODbL)
+- Attribution: © OpenStreetMap contributors
+- Source: https://www.openstreetmap.org/
+
+### Administrative Boundaries
+
+**Swiss Cantonal Boundaries**: Swiss Federal Office of Topography (swisstopo)
+
+- Dataset: swissBOUNDARIES3D (version 2025)
+- License: Open Government Data License
+- Attribution: © Swiss Federal Office of Topography (swisstopo)
+- Source: https://www.swisstopo.admin.ch/
+
+
+### Population Data
+
+**Greater Geneva Population Grid**: Standardized cross-border population dataset
+
+- Resolution: 200x200m uniform grid (166,792 total cells)
+- Coverage: Greater Geneva metropolitan area (Switzerland + France)
+- Vintage: 2019 (latest available for cross-border comparison)
+- Swiss Data Source: STATPOP (Swiss Federal Statistical Office, 2019)
+- French Data Source: FiLoSoFi (INSEE, 2019)
+- Access: Via SITG (Système d'information du territoire à Genève)
+- License: Open Government Data License
+- Established: 2021 (unified cross-border grid system)
+
 
 ## Spatial Framework
 

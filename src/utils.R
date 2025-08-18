@@ -4,13 +4,13 @@
 
 load_data <- function() {
   # Load CSV data
-  df <- read.csv("./data/gdf_final_1200.csv")
-  df_urban <- read.csv("./data/gdf_final_1200_urban.csv")
+  df <- read.csv("./data/confidential/gdf_final_1200.csv")
+  df_urban <- read.csv("./data/confidential/gdf_final_1200_urban.csv")
   
   # Load spatial data
-  ch_shp <- st_read('./data/canton_gecontour.gpkg', quiet = TRUE)
-  canton_ge <- st_read('./data/canton_ge.gpkg', quiet = TRUE)
-  communes_shp <- st_read("./data/communes_ge.gpkg", quiet = TRUE)
+  ch_shp <- st_read('./data/input/canton_gecontour.gpkg', quiet = TRUE)
+  canton_ge <- st_read('./data/input/canton_ge.gpkg', quiet = TRUE)
+  communes_shp <- st_read("./data/input/communes_ge.gpkg", quiet = TRUE)
   
   # Create boundary segments for INLA
   bdry <- inla.sp2segment(canton_ge)
@@ -26,7 +26,6 @@ load_data <- function() {
   ))
 }
 
-df$smoking_status
 
 prepare_datasets <- function(df, df_urban) {
   #Factorize age_group
@@ -2183,7 +2182,7 @@ create_forest_plot <- function(all_models, parameter = "pt_all", save_path = NUL
       breaks = seq(from = -8, to = 8, by = 1)
     ) +
     labs(
-      x = "Effect Estimate",
+      x = "Percentage change per SD increase in Proximity Time",
       y = NULL,
     ) +
     theme_bw(base_size = 10) +
