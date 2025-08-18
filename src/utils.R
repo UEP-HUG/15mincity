@@ -8,9 +8,8 @@ load_data <- function() {
   df_urban <- read.csv("./data/confidential/gdf_final_1200_urban.csv")
   
   # Load spatial data
-  ch_shp <- st_read('./data/input/canton_gecontour.gpkg', quiet = TRUE)
-  canton_ge <- st_read('./data/input/canton_ge.gpkg', quiet = TRUE)
-  communes_shp <- st_read("./data/input/communes_ge.gpkg", quiet = TRUE)
+  canton_ge <- st_read('./data/input/canton_ge.GeoJSON', quiet = TRUE)
+  communes_shp <- st_read("./data/input/communes_ge.GeoJSON", quiet = TRUE)
   
   # Create boundary segments for INLA
   bdry <- inla.sp2segment(canton_ge)
@@ -19,7 +18,6 @@ load_data <- function() {
   return(list(
     df = df, 
     df_urban = df_urban, 
-    ch_shp = ch_shp, 
     canton_ge = canton_ge, 
     communes_shp = communes_shp,
     bdry = bdry
@@ -1569,6 +1567,11 @@ plot_nonlinear_effects <- function(models, save_path = "./results/all_pois/figur
         width = 800, height = 600, res = 120)
     
     par(mar = c(5, 5, 2, 2), family = "Helvetica")
+    
+    pdf(file.path(save_path, sprintf("nonlinear_effect_%s.pdf", outcome_key)), 
+        width = 8, height = 6)
+    par(mar = c(5, 5, 2, 2), family = "Helvetica")
+    
     
     # If mean and sd are provided, create transformed x-axis
     if (!is.null(pt_mean) && !is.null(pt_sd)) {

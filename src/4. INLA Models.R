@@ -14,9 +14,7 @@ result_folder <- './results/all_pois'
 # 1. Data Loading and Preparation
 # ============================================================================
 df <- read.csv("./data/confidential/gdf_final_1200.csv")
-df
-# df_urban <- read.csv("./data/gdf_final_1200_urban.csv")
-ch_shp <- st_read('./data/input/canton_gecontour.GeoJSON', quiet = TRUE)
+
 canton_ge <- st_read('./data/input/canton_ge.GeoJSON', quiet = TRUE)
 communes_shp <- st_read("./data/input/communes_ge.GeoJSON", quiet = TRUE)
 
@@ -141,6 +139,7 @@ results_mobility_35
 
 # Save results
 save_results(results_mvpa,'results_mvpa_continuous.csv')
+
 save_results(results_mvpa_binary,'results_mvpa_binary.csv')
 
 save_results(results_mobility,'results_mobility_continuous.csv')

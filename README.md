@@ -2,7 +2,7 @@
 
 This repository contains the code and analysis scripts for the research paper:
 
-> **A 15-minute city framework to active mobility and physical activity: A cross-sectional study in the Canton of Geneva, Switzerland**
+> **Divergent effects of 15-minute city access on physical activity domains**
 
 ## Project Overview
 
