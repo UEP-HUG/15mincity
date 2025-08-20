@@ -230,7 +230,7 @@ sd_pt <- sd(dfs$df$overall_15min_city_proximity_time)
 
 
 source('src/utils.R')
- # After fitting all models
+# After fitting all models
 plot_nonlinear_effects(list(
   energy = energy_models,
   seden = sedentary_models,
