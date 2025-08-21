@@ -41,6 +41,54 @@ Key research questions:
 └── README.md               # This file
 ```
 
+## System Requirements
+
+### Hardware Requirements
+- Standard desktop computer with at least 8GB RAM
+- No special hardware required
+- Analysis tested on machines with 16GB RAM
+
+### Software Dependencies
+**Operating Systems tested:**
+- macOS 15.0+ (Sequoia)
+
+
+**Python 3.11+ with:**
+See requirements.txt
+
+**R 4.4+**
+
+## Installation Guide
+
+### Python environment setup (5-10 minutes)
+```bash
+# Create conda environment
+conda create -n 15mincity python=3.11
+conda activate 15mincity
+
+# Install dependencies
+pip install -r requirements.txt
+
+
+### 4. **Demo Instructions** ❌
+
+### Quick Start Demo
+1. Navigate to `demo/` folder
+2. Run Notebooks in `src/` folder with demo datasets
+3. Expected output:
+   - Accessibility map for demo area
+   - Summary statistics table
+   - Association plot between PT and physical activity
+4. **Expected runtime: 2-3 minutes on standard desktop**
+
+### Full Pipeline Demo
+1. Run notebooks in sequence:
+   - `1. OSM POI extraction` (0 minutes, not need with demo datasets)
+   - `2. Accessibility metrics` (5 minutes)
+   - `3. Association analysis` (5 minutes)
+   - `4. INLA Models.R` (20 minutes)
+**Total runtime: ~30 minutes**
+
 ## Analysis Workflow
 
 The analysis follows these main steps:
@@ -108,6 +156,11 @@ The analysis uses the following main libraries:
 - MASS, ordinal (for statistical modeling)
 
 ## Data Sources
+
+### Demo Dataset
+A small demo dataset is provided in `data/demo/` containing:
+- Sample POI data for a subset of Geneva (n=500 POIs)
+- Sample physical activity data (synthetic, n=100 participants)
 
 The analysis integrates multiple data sources:
 
