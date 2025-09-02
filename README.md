@@ -70,7 +70,7 @@ conda activate 15mincity
 pip install -r requirements.txt
 ```
 
-### 4. **Demo Instructions** ❌
+### 4. **Demo Instructions**
 
 ### Quick Start Demo
 1. Navigate to `demo/` folder
