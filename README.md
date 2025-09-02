@@ -68,7 +68,7 @@ conda activate 15mincity
 
 # Install dependencies
 pip install -r requirements.txt
-
+```
 
 ### 4. **Demo Instructions** ❌
 
