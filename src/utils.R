@@ -341,7 +341,7 @@ create_inla_stacks <- function(dfs, inla_components, covariates_list) {
                                    inla_components$indices$iset_mvpa_continuous_35,
                                    covariates_list$covariates_mvpa_35, "mvpa_continuous_35") #Replace by MVPA to go back to previous results
   
-  stk_mvpa_binary_35 <- create_inla_stack("Leisure.time.MVPA..standardized..min.day.",
+  stk_mvpa_binary_35 <- create_inla_stack("leisure_mvpa_binary",
                                    dfs$df_35, inla_components$projections$A_35,
                                    inla_components$indices$iset_mvpa_binary_35,
                                    covariates_list$covariates_35, "mvpa_binary_35")
