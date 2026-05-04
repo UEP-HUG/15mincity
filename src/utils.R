@@ -34,11 +34,20 @@ prepare_datasets <- function(df, df_urban) {
   df_35 <- df[df$age >= 34, ]
   df_urban_35 <- df_urban[df_urban$age >= 34, ]
   
-  # Standardize continuous variables
+  # Standardize continuous variables.
+  # The 35-75 sensitivity sample is standardized using the full-sample
+  # (df) mean and SD so that "1 SD increase in PT" is the same physical
+  # quantity in the main and sensitivity analyses (i.e. effect sizes are
+  # directly comparable across the two). Urban subsets remain self-scaled
+  # because they are a separate sensitivity scope.
   continuous_vars <- c("age", 'overall_15min_city_proximity_time', 'overall_15min_city_pa_proximity_time')
   continuous_vars_std <- c("age_std", 'overall_15min_city_proximity_time_std', 'overall_15min_city_pa_proximity_time_std')
-  df[, continuous_vars_std] <- scale(df[, continuous_vars])
-  df_35[, continuous_vars_std] <- scale(df_35[, continuous_vars])
+  scaled_full <- scale(df[, continuous_vars])
+  ref_center <- attr(scaled_full, "scaled:center")
+  ref_scale  <- attr(scaled_full, "scaled:scale")
+  df[, continuous_vars_std] <- scaled_full
+  df_35[, continuous_vars_std] <- scale(df_35[, continuous_vars],
+                                        center = ref_center, scale = ref_scale)
   df_urban[, continuous_vars_std] <- scale(df_urban[, continuous_vars])
   df_urban_35[, continuous_vars_std] <- scale(df_urban_35[, continuous_vars])
   
@@ -1046,7 +1055,7 @@ process_results_mvpa <- function(models) {
   return(combined_results_mvpa_clean)
 }
 
-process_results_binary_mobility <- function(models) {
+process_results_binary_mobility <- function(models, pt_sd = NULL) {
   # Extract results for binary mobility models with binomial distribution
   # For binomial models with logit link, the effects are on the log-odds scale
   results_list <- list()
@@ -1141,22 +1150,31 @@ process_results_binary_mobility <- function(models) {
     combined_results <- do.call(rbind, results_list)
     
     # Create clean dataframe with results
+    logit_est <- as.numeric(combined_results[,1])
+    logit_lo  <- as.numeric(combined_results[,3])
+    logit_hi  <- as.numeric(combined_results[,4])
     combined_results_clean <- data.frame(
       Model = rownames(combined_results),
-      Estimate_logit = round(as.numeric(combined_results[,1]), 3),
-      Odds_Ratio = round(exp(as.numeric(combined_results[,1])), 3),
+      Estimate_logit = round(logit_est, 3),
+      Odds_Ratio = round(exp(logit_est), 3),
       SD = round(as.numeric(combined_results[,2]), 3),
-      '95_CI' = sprintf("(%.3f - %.3f)", 
-                        exp(as.numeric(combined_results[,3])),
-                        exp(as.numeric(combined_results[,4]))),
+      '95_CI' = sprintf("(%.3f - %.3f)",
+                        exp(logit_lo),
+                        exp(logit_hi)),
       DIC = round(as.numeric(combined_results[,5]), 3),
       Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
     )
-    
-    # Add informative column names
-    colnames(combined_results_clean) <- c('Model', "Log-Odds Estimate", 'Odds Ratio', 
+    colnames(combined_results_clean) <- c('Model', "Log-Odds Estimate", 'Odds Ratio',
                                           "SD", "95% CI (OR)", "DIC", "Mean log CPO")
-    
+
+    # Optional per-minute reporting: per-min log-odds = per-SD log-odds / pt_sd
+    if (!is.null(pt_sd)) {
+      combined_results_clean$`OR per min` <- round(exp(logit_est / pt_sd), 3)
+      combined_results_clean$`95% CI (OR) per min` <- sprintf("(%.3f - %.3f)",
+                                                                exp(logit_lo / pt_sd),
+                                                                exp(logit_hi / pt_sd))
+    }
+
     cat(sprintf("Successfully processed %d models\n", nrow(combined_results_clean)))
     return(combined_results_clean)
   } else {
@@ -1165,7 +1183,7 @@ process_results_binary_mobility <- function(models) {
   }
 }
 
-process_results_active_mobility <- function(models) {
+process_results_active_mobility <- function(models, pt_sd = NULL) {
   # Extract results for active mobility models with gamma distribution
   # For gamma models with log link, the effects are multiplicative
   results_list <- list()
@@ -1258,22 +1276,32 @@ process_results_active_mobility <- function(models) {
     combined_results <- do.call(rbind, results_list)
     
     # Create clean dataframe with results
+    log_est <- as.numeric(combined_results[,1])
+    log_lo  <- as.numeric(combined_results[,3])
+    log_hi  <- as.numeric(combined_results[,4])
     combined_results_clean <- data.frame(
       Model = rownames(combined_results),
-      Estimate_log = round(as.numeric(combined_results[,1]), 3),
-      Percent_Change = round(100 * (exp(as.numeric(combined_results[,1])) - 1), 1),
+      Estimate_log = round(log_est, 3),
+      Percent_Change = round(100 * (exp(log_est) - 1), 1),
       SD = round(as.numeric(combined_results[,2]), 3),
-      '95_CI' = sprintf("(%.1f%% - %.1f%%)", 
-                        100 * (exp(as.numeric(combined_results[,3])) - 1),
-                        100 * (exp(as.numeric(combined_results[,4])) - 1)),
+      '95_CI' = sprintf("(%.1f%% - %.1f%%)",
+                        100 * (exp(log_lo) - 1),
+                        100 * (exp(log_hi) - 1)),
       DIC = round(as.numeric(combined_results[,5]), 3),
       Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
     )
-    
-    # Add informative column names
-    colnames(combined_results_clean) <- c('Model', "Log Estimate", 'Percent change', 
+    colnames(combined_results_clean) <- c('Model', "Log Estimate", 'Percent change',
                                           "SD", "95% CI", "DIC", "Mean log CPO")
-    
+
+    # Optional per-minute reporting: divide the per-SD log coefficient by pt_sd
+    # to recover the per-minute log effect, then exponentiate.
+    if (!is.null(pt_sd)) {
+      combined_results_clean$`% per min` <- round(100 * (exp(log_est / pt_sd) - 1), 2)
+      combined_results_clean$`95% CI per min` <- sprintf("(%.2f%% - %.2f%%)",
+                                                          100 * (exp(log_lo / pt_sd) - 1),
+                                                          100 * (exp(log_hi / pt_sd) - 1))
+    }
+
     cat(sprintf("Successfully processed %d models\n", nrow(combined_results_clean)))
     return(combined_results_clean)
   } else {
@@ -1282,7 +1310,7 @@ process_results_active_mobility <- function(models) {
   }
 }
 
-process_results_sensitivity <- function(models) {
+process_results_sensitivity <- function(models, pt_sd = NULL) {
   # Helper functions for safely extracting values
   safe_extract_fixed <- function(model, coef_name) {
     if (is.null(model) || is.null(model$summary.fixed) || 
@@ -1380,22 +1408,31 @@ process_results_sensitivity <- function(models) {
   }
   
   # Create clean data frame with results
+  log_est <- as.numeric(combined_results[,1])
+  log_lo  <- as.numeric(combined_results[,3])
+  log_hi  <- as.numeric(combined_results[,4])
   combined_results_clean <- data.frame(
     Model = rownames(combined_results),
-    Estimate = round(as.numeric(combined_results[,1]), 3),
-    Percent_Change = round(sapply(as.numeric(combined_results[,1]), calculate_percent_change), 1),
+    Estimate = round(log_est, 3),
+    Percent_Change = round(sapply(log_est, calculate_percent_change), 1),
     SD = round(as.numeric(combined_results[,2]), 3),
-    '95_CI' = sprintf("(%.1f%% - %.1f%%)", 
-                      sapply(as.numeric(combined_results[,3]), calculate_percent_change),
-                      sapply(as.numeric(combined_results[,4]), calculate_percent_change)),
+    '95_CI' = sprintf("(%.1f%% - %.1f%%)",
+                      sapply(log_lo, calculate_percent_change),
+                      sapply(log_hi, calculate_percent_change)),
     DIC = round(as.numeric(combined_results[,5]), 3),
     Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
   )
-  
-  # Add informative column names
-  colnames(combined_results_clean) <- c('Model', "Estimate", 'Pct change', 
+  colnames(combined_results_clean) <- c('Model', "Estimate", 'Pct change',
                                         "SD", "95% CI", "DIC", "Mean log CPO")
-  
+
+  # Optional per-minute reporting (per-SD = per-min * pt_sd, so per-min = per-SD / pt_sd)
+  if (!is.null(pt_sd)) {
+    combined_results_clean$`% per min` <- round(sapply(log_est / pt_sd, calculate_percent_change), 2)
+    combined_results_clean$`95% CI per min` <- sprintf("(%.2f%% - %.2f%%)",
+                                                         sapply(log_lo / pt_sd, calculate_percent_change),
+                                                         sapply(log_hi / pt_sd, calculate_percent_change))
+  }
+
   cat(sprintf("Successfully processed %d sensitivity models\n", nrow(combined_results_clean)))
   return(combined_results_clean)
 }

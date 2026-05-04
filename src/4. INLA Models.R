@@ -113,27 +113,31 @@ actual_time_z_4
 # ============================================================================
 # 6. Results Processing and Visualization
 # ============================================================================
+# Full-sample SD of PT (in minutes) used to convert per-SD effect sizes
+# into per-minute effect sizes alongside the per-SD reporting. The full
+# sample is the reference; the 35-75 sensitivity sample is now standardized
+# against this same SD, so per-SD effects are directly comparable across
+# the main and sensitivity analyses.
+pt_sd_full <- sd(dfs$df$overall_15min_city_proximity_time)
+
 # results_sedentary <- process_results_sedentary(sedentary_models)
 # results_sedentary
 
-results_mobility <- process_results_active_mobility(mobility_continuous_models)
+results_mobility <- process_results_active_mobility(mobility_continuous_models, pt_sd = pt_sd_full)
 results_mobility
 
-results_mobility_binary <- process_results_binary_mobility(mobility_binary_models)
+results_mobility_binary <- process_results_binary_mobility(mobility_binary_models, pt_sd = pt_sd_full)
 results_mobility_binary
 
 
-results_mvpa <- process_results_active_mobility(mvpa_continuous_models)
+results_mvpa <- process_results_active_mobility(mvpa_continuous_models, pt_sd = pt_sd_full)
 results_mvpa
-results_mvpa_binary <- process_results_binary_mobility(mvpa_binary_models)
+results_mvpa_binary <- process_results_binary_mobility(mvpa_binary_models, pt_sd = pt_sd_full)
 results_mvpa_binary
 
 
-results_mvpa_35 <- process_results_active_mobility(mvpa_continous_35_models)
-
-
-results_mvpa_35 <- process_results_sensitivity(mvpa_continous_35_models)
-results_mobility_35 <- process_results_sensitivity(mobility_continous_35_models)
+results_mvpa_35 <- process_results_sensitivity(mvpa_continous_35_models, pt_sd = pt_sd_full)
+results_mobility_35 <- process_results_sensitivity(mobility_continous_35_models, pt_sd = pt_sd_full)
 
 results_mvpa_35
 results_mobility_35
