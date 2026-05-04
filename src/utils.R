@@ -439,70 +439,23 @@ run_inla_model_gamma <- function(formula, stack, model_name = NULL) {
   # Record start time for measuring duration
   start_time <- Sys.time()
   
-  # Run the model with error handling
-  result <- tryCatch({
-    # First attempt - standard gamma model with stability controls
-    cat("  Attempting standard gamma model with numerical stability controls...\n")
-    inla(formula,
-         family = "gamma",  # Gamma distribution for right-skewed data
-         control.family = list(link = "log"),  # Log link function
-         data = inla.stack.data(stack),
-         control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
-         control.predictor = list(A = inla.stack.A(stack)),
-         control.mode = list(restart = TRUE),
-         # Add controls for numerical stability
-         control.inla = list(
-           int.strategy = "eb",       # Use empirical Bayes
-           diagonal = 1e-6,           # Add small value to diagonal for stability
-           tolerance = 1e-4,          # Increase tolerance
-           h = 0.001                  # Step size in numerical derivatives
-         ),
-         verbose = FALSE)
-  }, error = function(e) {
-    # Log the error
-    cat(sprintf("  ERROR in first attempt: %s\n", e$message))
-    
-    # Second attempt - try with lognormal family
-    cat("  Trying with lognormal family instead...\n")
-    
-    tryCatch({
-      inla(formula,
-           family = "lognormal",      # Try lognormal instead of gamma
-           data = inla.stack.data(stack),
-           control.predictor = list(A = inla.stack.A(stack)),
-           control.compute = list(dic = TRUE, waic = TRUE),
-           control.mode = list(restart = TRUE),
-           control.inla = list(int.strategy = "eb"),
-           verbose = FALSE)
-    }, error = function(e2) {
-      cat(sprintf("  ERROR in second attempt: %s\n", e2$message))
-      
-      # Third attempt - simplify the model by removing some terms
-      cat("  Trying with simplified formula (removing spatial component)...\n")
-      
-      # Extract fixed effects part of the formula
-      formula_str <- deparse(formula)
-      fixed_part <- sub("f\\(spatial\\.field.*$", "", formula_str)
-      simplified_formula <- as.formula(paste0(fixed_part, "1)"))
-      
-      tryCatch({
-        inla(simplified_formula,
-             family = "gamma",
-             control.family = list(link = "log"),
-             data = as.data.frame(inla.stack.data(stack)),  # Convert to data frame
-             control.compute = list(dic = TRUE),
-             verbose = FALSE)
-      }, error = function(e3) {
-        cat(sprintf("  ERROR in third attempt: %s\n", e3$message))
-        cat("  All model fitting attempts failed.\n")
-        return(NULL)
-      })
-    })
-  })
-  
-  # Check if model fitting succeeded
+  result <- inla(formula,
+                 family = "gamma",
+                 control.family = list(link = "log"),
+                 data = inla.stack.data(stack),
+                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
+                 control.predictor = list(A = inla.stack.A(stack)),
+                 control.mode = list(restart = TRUE),
+                 control.inla = list(
+                   int.strategy = "eb",
+                   diagonal = 1e-6,
+                   tolerance = 1e-4,
+                   h = 0.001
+                 ),
+                 verbose = FALSE)
+
   if (is.null(result)) {
-    cat("  Model fitting FAILED for all attempts. Returning NULL.\n")
+    cat("  Model fitting FAILED. Returning NULL.\n")
     return(NULL)
   }
   
@@ -1820,99 +1773,7 @@ diagnose_inla_gamma <- function(model, stack, df, outcome_var, plot_title = NULL
 }
 
 # ============================================================================
-# 7. Main Analysis Pipeline
-# ============================================================================
-
-run_analysis <- function() {
-  # 1. Load data
-  data_list <- load_data()
-  
-  # 2. Prepare datasets
-  dfs <- prepare_datasets(data_list$df, data_list$df_urban)
-  
-  # 3. Create meshes
-  meshes <- create_meshes(dfs$coords, dfs$coords_35, dfs$coords_urban, dfs$coords_urban_35)
-  
-  # 4. Create SPDE models
-  spde_models <- create_spde_models(meshes$mesh1, meshes$mesh1_35, 
-                                    meshes$mesh1_urban, meshes$mesh1_urban_35)
-  
-  # 5. Create indices and projections
-  inla_components <- create_indices_and_projections(
-    spde_models, meshes, 
-    dfs$coords, dfs$coords_35, 
-    dfs$coords_urban, dfs$coords_urban_35
-  )
-  
-  # 6. Prepare covariates
-  covariates_list <- prepare_covariates(dfs)
-  
-  # 7. Create INLA stacks
-  stacks <- create_inla_stacks(dfs, inla_components, covariates_list)
-  
-  # 8. Define model formulas
-  formulas <- define_model_formulas()
-  
-  # 9. Fit models
-  seden_models <- fit_sedentary_models(formulas, stacks)
-  mvpa_models <- fit_mvpa_models(formulas, stacks)
-  energy_models <- fit_energy_models(formulas, stacks)
-  sensitivity_models <- fit_sensitivity_models(formulas, stacks)
-  
-  # 10. Process results
-  seden_results <- process_results_sedentary(seden_models)
-  mvpa_results <- process_results_mvpa(mvpa_models)
-  energy_results <- process_results_energy(energy_models)
-  sensitivity_results <- process_results_sensitivity(sensitivity_models)
-  
-  # 11. Save results
-  save_results(seden_results, "model_comparison_sedentary.csv")
-  save_results(mvpa_results, "model_comparison_mvpa.csv")
-  save_results(energy_results, "model_comparison_energy.csv")
-  save_results(sensitivity_results, "model_comparison_energy_35.csv")
-  
-  # 12. Visualize results for selected models
-  spatial_plots <- list(
-    seden_spatial = visualize_spatial_field(seden_models$IM3_seden, meshes$mesh1, data_list$canton_ge),
-    mvpa_spatial = visualize_spatial_field(mvpa_models$IM3_mvpa, meshes$mesh1, data_list$canton_ge),
-    energy_spatial = visualize_spatial_field(energy_models$IM3_energy, meshes$mesh1, data_list$canton_ge)
-  )
-  
-  prediction_plots <- list(
-    seden_pred = plot_predicted_values(seden_models$IM3_seden, dfs$df, data_list$canton_ge, "Sedentary"),
-    mvpa_pred = plot_predicted_values(mvpa_models$IM3_mvpa, dfs$df, data_list$canton_ge, "MVPA"),
-    energy_pred = plot_predicted_values(energy_models$IM3_energy, dfs$df, data_list$canton_ge, "Energy")
-  )
-  
-  # 13. Return all results and plots
-  return(list(
-    models = list(
-      seden = seden_models,
-      mvpa = mvpa_models,
-      energy = energy_models,
-      sensitivity = sensitivity_models
-    ),
-    results = list(
-      seden = seden_results,
-      mvpa = mvpa_results,
-      energy = energy_results,
-      sensitivity = sensitivity_results
-    ),
-    plots = list(
-      spatial = spatial_plots,
-      prediction = prediction_plots
-    ),
-    data = dfs,
-    spatial_data = list(
-      canton_ge = data_list$canton_ge,
-      communes_shp = data_list$communes_shp
-    ),
-    meshes = meshes
-  ))
-}
-
-# ============================================================================
-# 8. Additional Utility Functions
+# 7. Additional Utility Functions
 # ============================================================================
 
 compare_models <- function(model_list, model_names = NULL) {
