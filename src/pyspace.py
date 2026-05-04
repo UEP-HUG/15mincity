@@ -62,13 +62,15 @@ def get_distanceBandW(df, distance, lon, lat, transform='r'):
     return df.copy(), weight
 
 
-def add_random_noise(db,x,y):
-    db[x] = db[x] + np.random.randint(0, 100000.0, db.shape[0]) / 100000.0
-    db[y] = db[y] - np.random.randint(0, 100000.0, db.shape[0]) / 100000.0
+def add_random_noise(db, x, y, seed=42):
+    # Sub-meter symmetric jitter to break coincident-point ties for spatial models.
+    # Uses an isolated RandomState so the caller's global numpy seed is untouched.
+    rng = np.random.RandomState(seed)
+    db = db.copy()
+    db[x] = db[x] + rng.uniform(-0.5, 0.5, db.shape[0])
+    db[y] = db[y] + rng.uniform(-0.5, 0.5, db.shape[0])
     geometry = [Point(xy) for xy in zip(db[x], db[y])]
-    crs = 'epsg:2056'
-    db = gpd.GeoDataFrame(db, crs=crs, geometry=geometry)
-    return db.copy()
+    return gpd.GeoDataFrame(db, crs='epsg:2056', geometry=geometry)
 
 
 def compute_lisa(df, col, w, n_perm, p_value):

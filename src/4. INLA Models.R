@@ -1,8 +1,9 @@
 # ============================================================================
 # 15-Minute City and Physical Activity Analysis
 # ============================================================================
-# Set working directory and source utilities
-setwd('/Users/david/Dropbox/PhD/GitHub/15min_city/')
+# Before sourcing this script, set the working directory to the repository
+# root (the folder containing src/, data/, results/). The relative paths
+# below (./data/..., ./src/...) are resolved from there.
 set.seed(12345)
 
 # Load required packages
