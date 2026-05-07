@@ -5,10 +5,13 @@
 # root (the folder containing src/, data/, results/). The relative paths
 # below (./data/..., ./src/...) are resolved from there.
 set.seed(12345)
-
+# remotes::install_version("INLA", version = "22.05.07", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/testing"), dep = TRUE)
+# install.packages('INLAtools')
 # Load required packages
 source("./src/load_packages.R") 
 source("./src/utils.R")
+install.packages("ggplot2")
+library(ggplot2)
 # Set result folder path
 result_folder <- './results/all_pois'
 # ============================================================================
@@ -55,17 +58,6 @@ mobility_continuous_35_formulas <- define_model_formulas(spde_models$spde_mobili
 mvpa_binary_35_formulas <- define_model_formulas(spde_models$spde_mvpa_binary_35)
 mvpa_continuous_35_formulas <- define_model_formulas(spde_models$spde_mvpa_continuous_35)
 
-# seden_urban_formulas <- define_model_formulas(spde_models$spde_seden_urban)
-# energy_urban_formulas <- define_model_formulas(spde_models$spde_energy_urban)
-# mvpa_urban_formulas <- define_model_formulas(spde_models$spde_mvpa_urban)
-# mobility_urban_formulas <- define_model_formulas(spde_models$spde_mobility_urban)
-# sensitivity_urban_formulas <- define_model_formulas(spde_models$spde_urban_35)
-
-# ============================================================================
-# 5. Model Fitting
-# ============================================================================
-#sedentary_models <- fit_sedentary_models(seden_formulas, inla_stacks)
-#energy_models <- fit_energy_models(energy_formulas, inla_stacks)
 
 mobility_binary_models <- fit_mobility_binary_models(mobility_binary_formulas, inla_stacks)
 mobility_continuous_models <- fit_mobility_continuous_models(mobility_continuous_formulas, inla_stacks)
@@ -81,11 +73,6 @@ mvpa_continous_35_models <- fit_mvpa_35_continuous_models(mvpa_continuous_35_for
 
 
 mvpa_continous_35_models$IM3_mvpa_pt_35$summary.fixed
-# sedentary_urban_models <- fit_sedentary_models(seden_urban_formulas, inla_stacks)
-# mobility_urban_models <- fit_mobility_models(mobility_urban_formulas, inla_stacks)
-# energy_urban_models <- fit_energy_models(energy_urban_formulas, inla_stacks)
-# mvpa_urban_models <- fit_mvpa_models(mvpa_urban_formulas, inla_stacks)
-# sensitivity_urban_models <- fit_sensitivity_models(sensitivity_urban_formulas, inla_stacks)
 
 pt_all_effect <- mobility_continuous_models$IM3_mobility_nonlinear$summary.random$`inla.group(pt_all, n = 20)`
 pt_all_effect
@@ -218,6 +205,7 @@ all_models_binary <- list(
   mvpa_binary = mvpa_binary_models_all
 )
 
+library(dplyr)
 # Create and save the combined forest plot
 combined_plot <- create_forest_plot(
   all_models, 
@@ -229,4 +217,15 @@ combined_plot
 
 # Display the plot
 print(combined_plot)
+
+
+mean_pt_full <- mean(dfs$df$overall_15min_city_proximity_time)                                                                                                                                                    
+sd_pt_full  <- sd(dfs$df$overall_15min_city_proximity_time)
+
+plot_nonlinear_effects(
+  list(mvpa = mvpa_continuous_models,                                                                                                                                                                             
+       mobility = mobility_continuous_models),                                                                                                                                                                    
+  pt_mean = mean_pt_full,
+  pt_sd   = sd_pt_full                                                                                                                                                                                            
+)               
 

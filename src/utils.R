@@ -1552,125 +1552,85 @@ plot_nonlinear_effects <- function(models, save_path = "./results/all_pois/figur
       next
     }
     
-    # Create plot - using PNG for publication quality
-    png(file.path(save_path, sprintf("nonlinear_effect_%s.png", outcome_key)), 
-        width = 800, height = 600, res = 120)
-    
-    par(mar = c(5, 5, 2, 2), family = "Helvetica")
-    
-    pdf(file.path(save_path, sprintf("nonlinear_effect_%s.pdf", outcome_key)), 
-        width = 8, height = 6)
-    par(mar = c(5, 5, 2, 2), family = "Helvetica")
-    
-    
-    # If mean and sd are provided, create transformed x-axis
+    # Compute plotting data once (so PNG and PDF share identical content)
+    has_data <- !is.null(data) && "pt_all" %in% names(data)
     if (!is.null(pt_mean) && !is.null(pt_sd)) {
-      # Transform standardized values back to original scale
       original_x <- effect_data$ID * pt_sd + pt_mean
-      
-      # Check if we need to transform from log-scale (for mobility outcomes)
       is_gamma_outcome <- grepl("mobility|mvpa", outcome_key, ignore.case = TRUE)
-      
       if (is_gamma_outcome) {
-        # Transform log-scale effects to actual scale
-        # exp(log(baseline) + effect) - baseline
-        effect_mean <- baseline_mobility * (exp(effect_data$mean) - 1)
-        effect_lower <- baseline_mobility * (exp(effect_data$mean - 1.96*effect_data$sd) - 1)
-        effect_upper <- baseline_mobility * (exp(effect_data$mean + 1.96*effect_data$sd) - 1)
-        
-        ylab <- "% Change"
+        effect_mean  <- baseline_mobility * (exp(effect_data$mean) - 1)
+        effect_lower <- baseline_mobility * (exp(effect_data$mean - 1.96 * effect_data$sd) - 1)
+        effect_upper <- baseline_mobility * (exp(effect_data$mean + 1.96 * effect_data$sd) - 1)
+        ylab_use <- "% Change"
       } else {
-        effect_mean <- effect_data$mean
-        effect_lower <- effect_data$mean - 1.96*effect_data$sd
-        effect_upper <- effect_data$mean + 1.96*effect_data$sd
-        
-        ylab <- outcome$ylab
+        effect_mean  <- effect_data$mean
+        effect_lower <- effect_data$mean - 1.96 * effect_data$sd
+        effect_upper <- effect_data$mean + 1.96 * effect_data$sd
+        ylab_use <- outcome$ylab
       }
-      
-      # Get data density for rug plot if data is available
-      has_data <- !is.null(data) && "pt_all" %in% names(data)
-      
-      # Create the main plot
-      plot(effect_mean ~ original_x, type = "n", 
-           xlab = "Proximity Time (min)",
-           ylab = ylab,
-           cex.lab = 1.2, cex.axis = 1.1,
-           las = 1, # Horizontal axis labels
-           xaxs = "i", yaxs = "i") # Tight axes
-      
-      # Add grid
-      grid(lty = "dotted", col = "gray90")
-      
-      # Add confidence intervals
-      polygon(c(original_x, rev(original_x)), 
-              c(effect_upper, rev(effect_lower)),
-              col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
-      
-      # Add line for mean effect
-      lines(original_x, effect_mean, col = outcome$color, lwd = 2)
-      
-      # Add rug plot for data density if available
-      if (has_data) {
-        rug(data$pt_all, side = 1, col = adjustcolor("black", alpha.f = 0.3))
-      }
-      
-      # Add reference line at y = 0
-      abline(h = 0, lty = 2, col = "gray50")
-      
-      # Find where effect crosses zero (if it does)
       zero_cross <- NULL
       for (i in 1:(length(original_x) - 1)) {
-        if ((effect_mean[i] >= 0 && effect_mean[i+1] <= 0) || 
+        if ((effect_mean[i] >= 0 && effect_mean[i+1] <= 0) ||
             (effect_mean[i] <= 0 && effect_mean[i+1] >= 0)) {
-          # Simple linear interpolation to find crossing point
           prop <- abs(effect_mean[i]) / (abs(effect_mean[i]) + abs(effect_mean[i+1]))
           zero_cross <- original_x[i] + prop * (original_x[i+1] - original_x[i])
           break
         }
       }
-      
-      # Add vertical line at zero crossing
-      if (!is.null(zero_cross)) {
-        abline(v = zero_cross, lty = 3, col = "gray50")
-        text(zero_cross, min(effect_lower) * 0.9, 
-             sprintf("%.1f", zero_cross), pos = 4, cex = 0.8)
-      }
-      
-      # Add annotations for positive/negative regions
-      if (any(effect_mean > 0) && any(effect_mean < 0)) {
-        text(min(original_x) + (max(original_x) - min(original_x))*0.05, 
-             max(effect_upper) * 0.8, 
-             "Positive effect", cex = 0.9)
-        text(max(original_x) - (max(original_x) - min(original_x))*0.05, 
-             min(effect_lower) * 0.8, 
-             "Negative effect", cex = 0.9)
-      }
-      
-      
-    } else {
-      # Original plot without transformation - similar logic but with standardized values
-      # (Code omitted for brevity, but would follow same pattern as above)
-      plot(effect_data$mean ~ effect_data$ID, type = "l", 
-           col = outcome$color, lwd = 2,
-           xlab = "Proximity Time (min)", 
-           ylab = outcome$ylab,
-           cex.lab = 1.2, cex.axis = 1.1)
-      
-      # Add confidence intervals
-      polygon(c(effect_data$ID, rev(effect_data$ID)), 
-              c(effect_data$mean + 1.96*effect_data$sd, 
-                rev(effect_data$mean - 1.96*effect_data$sd)),
-              col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
-      
-      # Add reference line at y = 0
-      abline(h = 0, lty = 2, col = "gray50")
-      
     }
-    
-    
-    
+
+    # Local helper: draw the plot once. Called per output device.
+    draw_plot <- function() {
+      par(mar = c(5, 5, 2, 2), family = "Helvetica")
+      if (!is.null(pt_mean) && !is.null(pt_sd)) {
+        plot(effect_mean ~ original_x, type = "n",
+             xlab = "Proximity Time (min)", ylab = ylab_use,
+             cex.lab = 1.2, cex.axis = 1.1,
+             las = 1, xaxs = "i", yaxs = "i")
+        grid(lty = "dotted", col = "gray90")
+        polygon(c(original_x, rev(original_x)),
+                c(effect_upper, rev(effect_lower)),
+                col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
+        lines(original_x, effect_mean, col = outcome$color, lwd = 2)
+        if (has_data) rug(data$pt_all, side = 1, col = adjustcolor("black", alpha.f = 0.3))
+        abline(h = 0, lty = 2, col = "gray50")
+        if (!is.null(zero_cross)) {
+          abline(v = zero_cross, lty = 3, col = "gray50")
+          text(zero_cross, min(effect_lower) * 0.9,
+               sprintf("%.1f", zero_cross), pos = 4, cex = 0.8)
+        }
+        if (any(effect_mean > 0) && any(effect_mean < 0)) {
+          text(min(original_x) + (max(original_x) - min(original_x)) * 0.05,
+               max(effect_upper) * 0.8, "Positive effect", cex = 0.9)
+          text(max(original_x) - (max(original_x) - min(original_x)) * 0.05,
+               min(effect_lower) * 0.8, "Negative effect", cex = 0.9)
+        }
+      } else {
+        plot(effect_data$mean ~ effect_data$ID, type = "l",
+             col = outcome$color, lwd = 2,
+             xlab = "Proximity Time (min)", ylab = outcome$ylab,
+             cex.lab = 1.2, cex.axis = 1.1)
+        polygon(c(effect_data$ID, rev(effect_data$ID)),
+                c(effect_data$mean + 1.96 * effect_data$sd,
+                  rev(effect_data$mean - 1.96 * effect_data$sd)),
+                col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
+        abline(h = 0, lty = 2, col = "gray50")
+      }
+    }
+
+    # Save PNG
+    png(file.path(save_path, sprintf("nonlinear_effect_%s.png", outcome_key)),
+        width = 800, height = 600, res = 120)
+    draw_plot()
     dev.off()
-    cat(sprintf("Saved nonlinear effect plot for %s\n", outcome$name))
+
+    # Save PDF
+    pdf(file.path(save_path, sprintf("nonlinear_effect_%s.pdf", outcome_key)),
+        width = 8, height = 6)
+    draw_plot()
+    dev.off()
+
+    cat(sprintf("Saved PNG and PDF nonlinear effect plots for %s\n", outcome$name))
     
     # Also save data for reproducibility
     result_data <- effect_data
