@@ -1,13 +1,17 @@
 # ============================================================================
 # 15-Minute City and Physical Activity Analysis
 # ============================================================================
-# Set working directory and source utilities
-setwd('/Users/david/Dropbox/PhD/GitHub/15min_city/')
+# Before sourcing this script, set the working directory to the repository
+# root (the folder containing src/, data/, results/). The relative paths
+# below (./data/..., ./src/...) are resolved from there.
 set.seed(12345)
-
+# remotes::install_version("INLA", version = "22.05.07", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/testing"), dep = TRUE)
+# install.packages('INLAtools')
 # Load required packages
 source("./src/load_packages.R") 
 source("./src/utils.R")
+install.packages("ggplot2")
+library(ggplot2)
 # Set result folder path
 result_folder <- './results/all_pois'
 # ============================================================================
@@ -54,17 +58,6 @@ mobility_continuous_35_formulas <- define_model_formulas(spde_models$spde_mobili
 mvpa_binary_35_formulas <- define_model_formulas(spde_models$spde_mvpa_binary_35)
 mvpa_continuous_35_formulas <- define_model_formulas(spde_models$spde_mvpa_continuous_35)
 
-# seden_urban_formulas <- define_model_formulas(spde_models$spde_seden_urban)
-# energy_urban_formulas <- define_model_formulas(spde_models$spde_energy_urban)
-# mvpa_urban_formulas <- define_model_formulas(spde_models$spde_mvpa_urban)
-# mobility_urban_formulas <- define_model_formulas(spde_models$spde_mobility_urban)
-# sensitivity_urban_formulas <- define_model_formulas(spde_models$spde_urban_35)
-
-# ============================================================================
-# 5. Model Fitting
-# ============================================================================
-#sedentary_models <- fit_sedentary_models(seden_formulas, inla_stacks)
-#energy_models <- fit_energy_models(energy_formulas, inla_stacks)
 
 mobility_binary_models <- fit_mobility_binary_models(mobility_binary_formulas, inla_stacks)
 mobility_continuous_models <- fit_mobility_continuous_models(mobility_continuous_formulas, inla_stacks)
@@ -80,11 +73,6 @@ mvpa_continous_35_models <- fit_mvpa_35_continuous_models(mvpa_continuous_35_for
 
 
 mvpa_continous_35_models$IM3_mvpa_pt_35$summary.fixed
-# sedentary_urban_models <- fit_sedentary_models(seden_urban_formulas, inla_stacks)
-# mobility_urban_models <- fit_mobility_models(mobility_urban_formulas, inla_stacks)
-# energy_urban_models <- fit_energy_models(energy_urban_formulas, inla_stacks)
-# mvpa_urban_models <- fit_mvpa_models(mvpa_urban_formulas, inla_stacks)
-# sensitivity_urban_models <- fit_sensitivity_models(sensitivity_urban_formulas, inla_stacks)
 
 pt_all_effect <- mobility_continuous_models$IM3_mobility_nonlinear$summary.random$`inla.group(pt_all, n = 20)`
 pt_all_effect
@@ -112,27 +100,31 @@ actual_time_z_4
 # ============================================================================
 # 6. Results Processing and Visualization
 # ============================================================================
+# Full-sample SD of PT (in minutes) used to convert per-SD effect sizes
+# into per-minute effect sizes alongside the per-SD reporting. The full
+# sample is the reference; the 35-75 sensitivity sample is now standardized
+# against this same SD, so per-SD effects are directly comparable across
+# the main and sensitivity analyses.
+pt_sd_full <- sd(dfs$df$overall_15min_city_proximity_time)
+
 # results_sedentary <- process_results_sedentary(sedentary_models)
 # results_sedentary
 
-results_mobility <- process_results_active_mobility(mobility_continuous_models)
+results_mobility <- process_results_active_mobility(mobility_continuous_models, pt_sd = pt_sd_full)
 results_mobility
 
-results_mobility_binary <- process_results_binary_mobility(mobility_binary_models)
+results_mobility_binary <- process_results_binary_mobility(mobility_binary_models, pt_sd = pt_sd_full)
 results_mobility_binary
 
 
-results_mvpa <- process_results_active_mobility(mvpa_continuous_models)
+results_mvpa <- process_results_active_mobility(mvpa_continuous_models, pt_sd = pt_sd_full)
 results_mvpa
-results_mvpa_binary <- process_results_binary_mobility(mvpa_binary_models)
+results_mvpa_binary <- process_results_binary_mobility(mvpa_binary_models, pt_sd = pt_sd_full)
 results_mvpa_binary
 
 
-results_mvpa_35 <- process_results_active_mobility(mvpa_continous_35_models)
-
-
-results_mvpa_35 <- process_results_sensitivity(mvpa_continous_35_models)
-results_mobility_35 <- process_results_sensitivity(mobility_continous_35_models)
+results_mvpa_35 <- process_results_sensitivity(mvpa_continous_35_models, pt_sd = pt_sd_full)
+results_mobility_35 <- process_results_sensitivity(mobility_continous_35_models, pt_sd = pt_sd_full)
 
 results_mvpa_35
 results_mobility_35
@@ -213,6 +205,7 @@ all_models_binary <- list(
   mvpa_binary = mvpa_binary_models_all
 )
 
+library(dplyr)
 # Create and save the combined forest plot
 combined_plot <- create_forest_plot(
   all_models, 
@@ -225,40 +218,14 @@ combined_plot
 # Display the plot
 print(combined_plot)
 
-mean_pt <- mean(dfs$df$overall_15min_city_proximity_time)
-sd_pt <- sd(dfs$df$overall_15min_city_proximity_time)
 
+mean_pt_full <- mean(dfs$df$overall_15min_city_proximity_time)                                                                                                                                                    
+sd_pt_full  <- sd(dfs$df$overall_15min_city_proximity_time)
 
-source('src/utils.R')
-# After fitting all models
-plot_nonlinear_effects(list(
-  energy = energy_models,
-  seden = sedentary_models,
-  mvpa = mvpa_models,
-  mobility = mobility_continuous_models,
-  mobility_binary = mobility_binary_models
-), pt_mean = mean_pt,
-   pt_sd = sd_pt)
-
-plot_nonlinear_effects(list(
-  mvpa = mvpa_continuous_models,
-  mobility = mobility_continuous_models
-), pt_mean = mean_pt,
-pt_sd = sd_pt)
-
-mobility_continuous_models_all$IM3_mobility_nonlinear
-# Example usage
-sweet_spot_viz <- create_sweet_spot_visualization(
-  mobility_model = mobility_continuous_models_all$IM3_mobility_nonlinear,
-  mvpa_model = mvpa_models_all$IM3_mvpa_nonlinear,
-  pt_mean = mean(dfs$df$overall_15min_city_proximity_time, na.rm = TRUE),  # Your actual mean proximity time
-  pt_sd = sd(dfs$df$overall_15min_city_proximity_time, na.rm = TRUE),     # Your actual SD of proximity time
-  baseline_mobility = mean(dfs$df$Mobility..commute...personal.time...standardized..min.day., na.rm = TRUE), # Mean active mobility time
-  output_path = "./results/all_pois/figures/sweet_spot_visualization.png"
-)
-
-
-sd(dfs$df$Mobility..commute...personal.time...standardized..min.day., na.rm = TRUE)
-
-
+plot_nonlinear_effects(
+  list(mvpa = mvpa_continuous_models,                                                                                                                                                                             
+       mobility = mobility_continuous_models),                                                                                                                                                                    
+  pt_mean = mean_pt_full,
+  pt_sd   = sd_pt_full                                                                                                                                                                                            
+)               
 

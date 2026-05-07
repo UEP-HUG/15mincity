@@ -34,11 +34,20 @@ prepare_datasets <- function(df, df_urban) {
   df_35 <- df[df$age >= 34, ]
   df_urban_35 <- df_urban[df_urban$age >= 34, ]
   
-  # Standardize continuous variables
+  # Standardize continuous variables.
+  # The 35-75 sensitivity sample is standardized using the full-sample
+  # (df) mean and SD so that "1 SD increase in PT" is the same physical
+  # quantity in the main and sensitivity analyses (i.e. effect sizes are
+  # directly comparable across the two). Urban subsets remain self-scaled
+  # because they are a separate sensitivity scope.
   continuous_vars <- c("age", 'overall_15min_city_proximity_time', 'overall_15min_city_pa_proximity_time')
   continuous_vars_std <- c("age_std", 'overall_15min_city_proximity_time_std', 'overall_15min_city_pa_proximity_time_std')
-  df[, continuous_vars_std] <- scale(df[, continuous_vars])
-  df_35[, continuous_vars_std] <- scale(df_35[, continuous_vars])
+  scaled_full <- scale(df[, continuous_vars])
+  ref_center <- attr(scaled_full, "scaled:center")
+  ref_scale  <- attr(scaled_full, "scaled:scale")
+  df[, continuous_vars_std] <- scaled_full
+  df_35[, continuous_vars_std] <- scale(df_35[, continuous_vars],
+                                        center = ref_center, scale = ref_scale)
   df_urban[, continuous_vars_std] <- scale(df_urban[, continuous_vars])
   df_urban_35[, continuous_vars_std] <- scale(df_urban_35[, continuous_vars])
   
@@ -332,7 +341,7 @@ create_inla_stacks <- function(dfs, inla_components, covariates_list) {
                                    inla_components$indices$iset_mvpa_continuous_35,
                                    covariates_list$covariates_mvpa_35, "mvpa_continuous_35") #Replace by MVPA to go back to previous results
   
-  stk_mvpa_binary_35 <- create_inla_stack("Leisure.time.MVPA..standardized..min.day.",
+  stk_mvpa_binary_35 <- create_inla_stack("leisure_mvpa_binary",
                                    dfs$df_35, inla_components$projections$A_35,
                                    inla_components$indices$iset_mvpa_binary_35,
                                    covariates_list$covariates_35, "mvpa_binary_35")
@@ -439,70 +448,23 @@ run_inla_model_gamma <- function(formula, stack, model_name = NULL) {
   # Record start time for measuring duration
   start_time <- Sys.time()
   
-  # Run the model with error handling
-  result <- tryCatch({
-    # First attempt - standard gamma model with stability controls
-    cat("  Attempting standard gamma model with numerical stability controls...\n")
-    inla(formula,
-         family = "gamma",  # Gamma distribution for right-skewed data
-         control.family = list(link = "log"),  # Log link function
-         data = inla.stack.data(stack),
-         control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
-         control.predictor = list(A = inla.stack.A(stack)),
-         control.mode = list(restart = TRUE),
-         # Add controls for numerical stability
-         control.inla = list(
-           int.strategy = "eb",       # Use empirical Bayes
-           diagonal = 1e-6,           # Add small value to diagonal for stability
-           tolerance = 1e-4,          # Increase tolerance
-           h = 0.001                  # Step size in numerical derivatives
-         ),
-         verbose = FALSE)
-  }, error = function(e) {
-    # Log the error
-    cat(sprintf("  ERROR in first attempt: %s\n", e$message))
-    
-    # Second attempt - try with lognormal family
-    cat("  Trying with lognormal family instead...\n")
-    
-    tryCatch({
-      inla(formula,
-           family = "lognormal",      # Try lognormal instead of gamma
-           data = inla.stack.data(stack),
-           control.predictor = list(A = inla.stack.A(stack)),
-           control.compute = list(dic = TRUE, waic = TRUE),
-           control.mode = list(restart = TRUE),
-           control.inla = list(int.strategy = "eb"),
-           verbose = FALSE)
-    }, error = function(e2) {
-      cat(sprintf("  ERROR in second attempt: %s\n", e2$message))
-      
-      # Third attempt - simplify the model by removing some terms
-      cat("  Trying with simplified formula (removing spatial component)...\n")
-      
-      # Extract fixed effects part of the formula
-      formula_str <- deparse(formula)
-      fixed_part <- sub("f\\(spatial\\.field.*$", "", formula_str)
-      simplified_formula <- as.formula(paste0(fixed_part, "1)"))
-      
-      tryCatch({
-        inla(simplified_formula,
-             family = "gamma",
-             control.family = list(link = "log"),
-             data = as.data.frame(inla.stack.data(stack)),  # Convert to data frame
-             control.compute = list(dic = TRUE),
-             verbose = FALSE)
-      }, error = function(e3) {
-        cat(sprintf("  ERROR in third attempt: %s\n", e3$message))
-        cat("  All model fitting attempts failed.\n")
-        return(NULL)
-      })
-    })
-  })
-  
-  # Check if model fitting succeeded
+  result <- inla(formula,
+                 family = "gamma",
+                 control.family = list(link = "log"),
+                 data = inla.stack.data(stack),
+                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
+                 control.predictor = list(A = inla.stack.A(stack)),
+                 control.mode = list(restart = TRUE),
+                 control.inla = list(
+                   int.strategy = "eb",
+                   diagonal = 1e-6,
+                   tolerance = 1e-4,
+                   h = 0.001
+                 ),
+                 verbose = FALSE)
+
   if (is.null(result)) {
-    cat("  Model fitting FAILED for all attempts. Returning NULL.\n")
+    cat("  Model fitting FAILED. Returning NULL.\n")
     return(NULL)
   }
   
@@ -1093,7 +1055,7 @@ process_results_mvpa <- function(models) {
   return(combined_results_mvpa_clean)
 }
 
-process_results_binary_mobility <- function(models) {
+process_results_binary_mobility <- function(models, pt_sd = NULL) {
   # Extract results for binary mobility models with binomial distribution
   # For binomial models with logit link, the effects are on the log-odds scale
   results_list <- list()
@@ -1188,22 +1150,31 @@ process_results_binary_mobility <- function(models) {
     combined_results <- do.call(rbind, results_list)
     
     # Create clean dataframe with results
+    logit_est <- as.numeric(combined_results[,1])
+    logit_lo  <- as.numeric(combined_results[,3])
+    logit_hi  <- as.numeric(combined_results[,4])
     combined_results_clean <- data.frame(
       Model = rownames(combined_results),
-      Estimate_logit = round(as.numeric(combined_results[,1]), 3),
-      Odds_Ratio = round(exp(as.numeric(combined_results[,1])), 3),
+      Estimate_logit = round(logit_est, 3),
+      Odds_Ratio = round(exp(logit_est), 3),
       SD = round(as.numeric(combined_results[,2]), 3),
-      '95_CI' = sprintf("(%.3f - %.3f)", 
-                        exp(as.numeric(combined_results[,3])),
-                        exp(as.numeric(combined_results[,4]))),
+      '95_CI' = sprintf("(%.3f - %.3f)",
+                        exp(logit_lo),
+                        exp(logit_hi)),
       DIC = round(as.numeric(combined_results[,5]), 3),
       Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
     )
-    
-    # Add informative column names
-    colnames(combined_results_clean) <- c('Model', "Log-Odds Estimate", 'Odds Ratio', 
+    colnames(combined_results_clean) <- c('Model', "Log-Odds Estimate", 'Odds Ratio',
                                           "SD", "95% CI (OR)", "DIC", "Mean log CPO")
-    
+
+    # Optional per-minute reporting: per-min log-odds = per-SD log-odds / pt_sd
+    if (!is.null(pt_sd)) {
+      combined_results_clean$`OR per min` <- round(exp(logit_est / pt_sd), 3)
+      combined_results_clean$`95% CI (OR) per min` <- sprintf("(%.3f - %.3f)",
+                                                                exp(logit_lo / pt_sd),
+                                                                exp(logit_hi / pt_sd))
+    }
+
     cat(sprintf("Successfully processed %d models\n", nrow(combined_results_clean)))
     return(combined_results_clean)
   } else {
@@ -1212,7 +1183,7 @@ process_results_binary_mobility <- function(models) {
   }
 }
 
-process_results_active_mobility <- function(models) {
+process_results_active_mobility <- function(models, pt_sd = NULL) {
   # Extract results for active mobility models with gamma distribution
   # For gamma models with log link, the effects are multiplicative
   results_list <- list()
@@ -1305,22 +1276,32 @@ process_results_active_mobility <- function(models) {
     combined_results <- do.call(rbind, results_list)
     
     # Create clean dataframe with results
+    log_est <- as.numeric(combined_results[,1])
+    log_lo  <- as.numeric(combined_results[,3])
+    log_hi  <- as.numeric(combined_results[,4])
     combined_results_clean <- data.frame(
       Model = rownames(combined_results),
-      Estimate_log = round(as.numeric(combined_results[,1]), 3),
-      Percent_Change = round(100 * (exp(as.numeric(combined_results[,1])) - 1), 1),
+      Estimate_log = round(log_est, 3),
+      Percent_Change = round(100 * (exp(log_est) - 1), 1),
       SD = round(as.numeric(combined_results[,2]), 3),
-      '95_CI' = sprintf("(%.1f%% - %.1f%%)", 
-                        100 * (exp(as.numeric(combined_results[,3])) - 1),
-                        100 * (exp(as.numeric(combined_results[,4])) - 1)),
+      '95_CI' = sprintf("(%.1f%% - %.1f%%)",
+                        100 * (exp(log_lo) - 1),
+                        100 * (exp(log_hi) - 1)),
       DIC = round(as.numeric(combined_results[,5]), 3),
       Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
     )
-    
-    # Add informative column names
-    colnames(combined_results_clean) <- c('Model', "Log Estimate", 'Percent change', 
+    colnames(combined_results_clean) <- c('Model', "Log Estimate", 'Percent change',
                                           "SD", "95% CI", "DIC", "Mean log CPO")
-    
+
+    # Optional per-minute reporting: divide the per-SD log coefficient by pt_sd
+    # to recover the per-minute log effect, then exponentiate.
+    if (!is.null(pt_sd)) {
+      combined_results_clean$`% per min` <- round(100 * (exp(log_est / pt_sd) - 1), 2)
+      combined_results_clean$`95% CI per min` <- sprintf("(%.2f%% - %.2f%%)",
+                                                          100 * (exp(log_lo / pt_sd) - 1),
+                                                          100 * (exp(log_hi / pt_sd) - 1))
+    }
+
     cat(sprintf("Successfully processed %d models\n", nrow(combined_results_clean)))
     return(combined_results_clean)
   } else {
@@ -1329,7 +1310,7 @@ process_results_active_mobility <- function(models) {
   }
 }
 
-process_results_sensitivity <- function(models) {
+process_results_sensitivity <- function(models, pt_sd = NULL) {
   # Helper functions for safely extracting values
   safe_extract_fixed <- function(model, coef_name) {
     if (is.null(model) || is.null(model$summary.fixed) || 
@@ -1427,22 +1408,31 @@ process_results_sensitivity <- function(models) {
   }
   
   # Create clean data frame with results
+  log_est <- as.numeric(combined_results[,1])
+  log_lo  <- as.numeric(combined_results[,3])
+  log_hi  <- as.numeric(combined_results[,4])
   combined_results_clean <- data.frame(
     Model = rownames(combined_results),
-    Estimate = round(as.numeric(combined_results[,1]), 3),
-    Percent_Change = round(sapply(as.numeric(combined_results[,1]), calculate_percent_change), 1),
+    Estimate = round(log_est, 3),
+    Percent_Change = round(sapply(log_est, calculate_percent_change), 1),
     SD = round(as.numeric(combined_results[,2]), 3),
-    '95_CI' = sprintf("(%.1f%% - %.1f%%)", 
-                      sapply(as.numeric(combined_results[,3]), calculate_percent_change),
-                      sapply(as.numeric(combined_results[,4]), calculate_percent_change)),
+    '95_CI' = sprintf("(%.1f%% - %.1f%%)",
+                      sapply(log_lo, calculate_percent_change),
+                      sapply(log_hi, calculate_percent_change)),
     DIC = round(as.numeric(combined_results[,5]), 3),
     Mean_log_CPO = round(as.numeric(combined_results[,6]), 3)
   )
-  
-  # Add informative column names
-  colnames(combined_results_clean) <- c('Model', "Estimate", 'Pct change', 
+  colnames(combined_results_clean) <- c('Model', "Estimate", 'Pct change',
                                         "SD", "95% CI", "DIC", "Mean log CPO")
-  
+
+  # Optional per-minute reporting (per-SD = per-min * pt_sd, so per-min = per-SD / pt_sd)
+  if (!is.null(pt_sd)) {
+    combined_results_clean$`% per min` <- round(sapply(log_est / pt_sd, calculate_percent_change), 2)
+    combined_results_clean$`95% CI per min` <- sprintf("(%.2f%% - %.2f%%)",
+                                                         sapply(log_lo / pt_sd, calculate_percent_change),
+                                                         sapply(log_hi / pt_sd, calculate_percent_change))
+  }
+
   cat(sprintf("Successfully processed %d sensitivity models\n", nrow(combined_results_clean)))
   return(combined_results_clean)
 }
@@ -1562,125 +1552,85 @@ plot_nonlinear_effects <- function(models, save_path = "./results/all_pois/figur
       next
     }
     
-    # Create plot - using PNG for publication quality
-    png(file.path(save_path, sprintf("nonlinear_effect_%s.png", outcome_key)), 
-        width = 800, height = 600, res = 120)
-    
-    par(mar = c(5, 5, 2, 2), family = "Helvetica")
-    
-    pdf(file.path(save_path, sprintf("nonlinear_effect_%s.pdf", outcome_key)), 
-        width = 8, height = 6)
-    par(mar = c(5, 5, 2, 2), family = "Helvetica")
-    
-    
-    # If mean and sd are provided, create transformed x-axis
+    # Compute plotting data once (so PNG and PDF share identical content)
+    has_data <- !is.null(data) && "pt_all" %in% names(data)
     if (!is.null(pt_mean) && !is.null(pt_sd)) {
-      # Transform standardized values back to original scale
       original_x <- effect_data$ID * pt_sd + pt_mean
-      
-      # Check if we need to transform from log-scale (for mobility outcomes)
       is_gamma_outcome <- grepl("mobility|mvpa", outcome_key, ignore.case = TRUE)
-      
       if (is_gamma_outcome) {
-        # Transform log-scale effects to actual scale
-        # exp(log(baseline) + effect) - baseline
-        effect_mean <- baseline_mobility * (exp(effect_data$mean) - 1)
-        effect_lower <- baseline_mobility * (exp(effect_data$mean - 1.96*effect_data$sd) - 1)
-        effect_upper <- baseline_mobility * (exp(effect_data$mean + 1.96*effect_data$sd) - 1)
-        
-        ylab <- "% Change"
+        effect_mean  <- baseline_mobility * (exp(effect_data$mean) - 1)
+        effect_lower <- baseline_mobility * (exp(effect_data$mean - 1.96 * effect_data$sd) - 1)
+        effect_upper <- baseline_mobility * (exp(effect_data$mean + 1.96 * effect_data$sd) - 1)
+        ylab_use <- "% Change"
       } else {
-        effect_mean <- effect_data$mean
-        effect_lower <- effect_data$mean - 1.96*effect_data$sd
-        effect_upper <- effect_data$mean + 1.96*effect_data$sd
-        
-        ylab <- outcome$ylab
+        effect_mean  <- effect_data$mean
+        effect_lower <- effect_data$mean - 1.96 * effect_data$sd
+        effect_upper <- effect_data$mean + 1.96 * effect_data$sd
+        ylab_use <- outcome$ylab
       }
-      
-      # Get data density for rug plot if data is available
-      has_data <- !is.null(data) && "pt_all" %in% names(data)
-      
-      # Create the main plot
-      plot(effect_mean ~ original_x, type = "n", 
-           xlab = "Proximity Time (min)",
-           ylab = ylab,
-           cex.lab = 1.2, cex.axis = 1.1,
-           las = 1, # Horizontal axis labels
-           xaxs = "i", yaxs = "i") # Tight axes
-      
-      # Add grid
-      grid(lty = "dotted", col = "gray90")
-      
-      # Add confidence intervals
-      polygon(c(original_x, rev(original_x)), 
-              c(effect_upper, rev(effect_lower)),
-              col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
-      
-      # Add line for mean effect
-      lines(original_x, effect_mean, col = outcome$color, lwd = 2)
-      
-      # Add rug plot for data density if available
-      if (has_data) {
-        rug(data$pt_all, side = 1, col = adjustcolor("black", alpha.f = 0.3))
-      }
-      
-      # Add reference line at y = 0
-      abline(h = 0, lty = 2, col = "gray50")
-      
-      # Find where effect crosses zero (if it does)
       zero_cross <- NULL
       for (i in 1:(length(original_x) - 1)) {
-        if ((effect_mean[i] >= 0 && effect_mean[i+1] <= 0) || 
+        if ((effect_mean[i] >= 0 && effect_mean[i+1] <= 0) ||
             (effect_mean[i] <= 0 && effect_mean[i+1] >= 0)) {
-          # Simple linear interpolation to find crossing point
           prop <- abs(effect_mean[i]) / (abs(effect_mean[i]) + abs(effect_mean[i+1]))
           zero_cross <- original_x[i] + prop * (original_x[i+1] - original_x[i])
           break
         }
       }
-      
-      # Add vertical line at zero crossing
-      if (!is.null(zero_cross)) {
-        abline(v = zero_cross, lty = 3, col = "gray50")
-        text(zero_cross, min(effect_lower) * 0.9, 
-             sprintf("%.1f", zero_cross), pos = 4, cex = 0.8)
-      }
-      
-      # Add annotations for positive/negative regions
-      if (any(effect_mean > 0) && any(effect_mean < 0)) {
-        text(min(original_x) + (max(original_x) - min(original_x))*0.05, 
-             max(effect_upper) * 0.8, 
-             "Positive effect", cex = 0.9)
-        text(max(original_x) - (max(original_x) - min(original_x))*0.05, 
-             min(effect_lower) * 0.8, 
-             "Negative effect", cex = 0.9)
-      }
-      
-      
-    } else {
-      # Original plot without transformation - similar logic but with standardized values
-      # (Code omitted for brevity, but would follow same pattern as above)
-      plot(effect_data$mean ~ effect_data$ID, type = "l", 
-           col = outcome$color, lwd = 2,
-           xlab = "Proximity Time (min)", 
-           ylab = outcome$ylab,
-           cex.lab = 1.2, cex.axis = 1.1)
-      
-      # Add confidence intervals
-      polygon(c(effect_data$ID, rev(effect_data$ID)), 
-              c(effect_data$mean + 1.96*effect_data$sd, 
-                rev(effect_data$mean - 1.96*effect_data$sd)),
-              col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
-      
-      # Add reference line at y = 0
-      abline(h = 0, lty = 2, col = "gray50")
-      
     }
-    
-    
-    
+
+    # Local helper: draw the plot once. Called per output device.
+    draw_plot <- function() {
+      par(mar = c(5, 5, 2, 2), family = "Helvetica")
+      if (!is.null(pt_mean) && !is.null(pt_sd)) {
+        plot(effect_mean ~ original_x, type = "n",
+             xlab = "Proximity Time (min)", ylab = ylab_use,
+             cex.lab = 1.2, cex.axis = 1.1,
+             las = 1, xaxs = "i", yaxs = "i")
+        grid(lty = "dotted", col = "gray90")
+        polygon(c(original_x, rev(original_x)),
+                c(effect_upper, rev(effect_lower)),
+                col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
+        lines(original_x, effect_mean, col = outcome$color, lwd = 2)
+        if (has_data) rug(data$pt_all, side = 1, col = adjustcolor("black", alpha.f = 0.3))
+        abline(h = 0, lty = 2, col = "gray50")
+        if (!is.null(zero_cross)) {
+          abline(v = zero_cross, lty = 3, col = "gray50")
+          text(zero_cross, min(effect_lower) * 0.9,
+               sprintf("%.1f", zero_cross), pos = 4, cex = 0.8)
+        }
+        if (any(effect_mean > 0) && any(effect_mean < 0)) {
+          text(min(original_x) + (max(original_x) - min(original_x)) * 0.05,
+               max(effect_upper) * 0.8, "Positive effect", cex = 0.9)
+          text(max(original_x) - (max(original_x) - min(original_x)) * 0.05,
+               min(effect_lower) * 0.8, "Negative effect", cex = 0.9)
+        }
+      } else {
+        plot(effect_data$mean ~ effect_data$ID, type = "l",
+             col = outcome$color, lwd = 2,
+             xlab = "Proximity Time (min)", ylab = outcome$ylab,
+             cex.lab = 1.2, cex.axis = 1.1)
+        polygon(c(effect_data$ID, rev(effect_data$ID)),
+                c(effect_data$mean + 1.96 * effect_data$sd,
+                  rev(effect_data$mean - 1.96 * effect_data$sd)),
+                col = adjustcolor(outcome$color, alpha.f = 0.2), border = NA)
+        abline(h = 0, lty = 2, col = "gray50")
+      }
+    }
+
+    # Save PNG
+    png(file.path(save_path, sprintf("nonlinear_effect_%s.png", outcome_key)),
+        width = 800, height = 600, res = 120)
+    draw_plot()
     dev.off()
-    cat(sprintf("Saved nonlinear effect plot for %s\n", outcome$name))
+
+    # Save PDF
+    pdf(file.path(save_path, sprintf("nonlinear_effect_%s.pdf", outcome_key)),
+        width = 8, height = 6)
+    draw_plot()
+    dev.off()
+
+    cat(sprintf("Saved PNG and PDF nonlinear effect plots for %s\n", outcome$name))
     
     # Also save data for reproducibility
     result_data <- effect_data
@@ -1820,99 +1770,7 @@ diagnose_inla_gamma <- function(model, stack, df, outcome_var, plot_title = NULL
 }
 
 # ============================================================================
-# 7. Main Analysis Pipeline
-# ============================================================================
-
-run_analysis <- function() {
-  # 1. Load data
-  data_list <- load_data()
-  
-  # 2. Prepare datasets
-  dfs <- prepare_datasets(data_list$df, data_list$df_urban)
-  
-  # 3. Create meshes
-  meshes <- create_meshes(dfs$coords, dfs$coords_35, dfs$coords_urban, dfs$coords_urban_35)
-  
-  # 4. Create SPDE models
-  spde_models <- create_spde_models(meshes$mesh1, meshes$mesh1_35, 
-                                    meshes$mesh1_urban, meshes$mesh1_urban_35)
-  
-  # 5. Create indices and projections
-  inla_components <- create_indices_and_projections(
-    spde_models, meshes, 
-    dfs$coords, dfs$coords_35, 
-    dfs$coords_urban, dfs$coords_urban_35
-  )
-  
-  # 6. Prepare covariates
-  covariates_list <- prepare_covariates(dfs)
-  
-  # 7. Create INLA stacks
-  stacks <- create_inla_stacks(dfs, inla_components, covariates_list)
-  
-  # 8. Define model formulas
-  formulas <- define_model_formulas()
-  
-  # 9. Fit models
-  seden_models <- fit_sedentary_models(formulas, stacks)
-  mvpa_models <- fit_mvpa_models(formulas, stacks)
-  energy_models <- fit_energy_models(formulas, stacks)
-  sensitivity_models <- fit_sensitivity_models(formulas, stacks)
-  
-  # 10. Process results
-  seden_results <- process_results_sedentary(seden_models)
-  mvpa_results <- process_results_mvpa(mvpa_models)
-  energy_results <- process_results_energy(energy_models)
-  sensitivity_results <- process_results_sensitivity(sensitivity_models)
-  
-  # 11. Save results
-  save_results(seden_results, "model_comparison_sedentary.csv")
-  save_results(mvpa_results, "model_comparison_mvpa.csv")
-  save_results(energy_results, "model_comparison_energy.csv")
-  save_results(sensitivity_results, "model_comparison_energy_35.csv")
-  
-  # 12. Visualize results for selected models
-  spatial_plots <- list(
-    seden_spatial = visualize_spatial_field(seden_models$IM3_seden, meshes$mesh1, data_list$canton_ge),
-    mvpa_spatial = visualize_spatial_field(mvpa_models$IM3_mvpa, meshes$mesh1, data_list$canton_ge),
-    energy_spatial = visualize_spatial_field(energy_models$IM3_energy, meshes$mesh1, data_list$canton_ge)
-  )
-  
-  prediction_plots <- list(
-    seden_pred = plot_predicted_values(seden_models$IM3_seden, dfs$df, data_list$canton_ge, "Sedentary"),
-    mvpa_pred = plot_predicted_values(mvpa_models$IM3_mvpa, dfs$df, data_list$canton_ge, "MVPA"),
-    energy_pred = plot_predicted_values(energy_models$IM3_energy, dfs$df, data_list$canton_ge, "Energy")
-  )
-  
-  # 13. Return all results and plots
-  return(list(
-    models = list(
-      seden = seden_models,
-      mvpa = mvpa_models,
-      energy = energy_models,
-      sensitivity = sensitivity_models
-    ),
-    results = list(
-      seden = seden_results,
-      mvpa = mvpa_results,
-      energy = energy_results,
-      sensitivity = sensitivity_results
-    ),
-    plots = list(
-      spatial = spatial_plots,
-      prediction = prediction_plots
-    ),
-    data = dfs,
-    spatial_data = list(
-      canton_ge = data_list$canton_ge,
-      communes_shp = data_list$communes_shp
-    ),
-    meshes = meshes
-  ))
-}
-
-# ============================================================================
-# 8. Additional Utility Functions
+# 7. Additional Utility Functions
 # ============================================================================
 
 compare_models <- function(model_list, model_names = NULL) {
