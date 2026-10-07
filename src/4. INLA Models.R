@@ -229,3 +229,5 @@ plot_nonlinear_effects(
   pt_sd   = sd_pt_full                                                                                                                                                                                            
 )               
 
+exp(mobility_binary_35_models$IM3_mobility_binary_pt_35$summary.fixed["pt_all", c("mean","0.025quant","0.975quant")])                                                                                             
+
