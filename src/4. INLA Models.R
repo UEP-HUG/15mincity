@@ -10,7 +10,6 @@ set.seed(12345)
 # Load required packages
 source("./src/load_packages.R") 
 source("./src/utils.R")
-install.packages("ggplot2")
 library(ggplot2)
 # Set result folder path
 result_folder <- './results/all_pois'
@@ -231,3 +230,6 @@ plot_nonlinear_effects(
 
 exp(mobility_binary_35_models$IM3_mobility_binary_pt_35$summary.fixed["pt_all", c("mean","0.025quant","0.975quant")])                                                                                             
 
+
+# Record R and package versions of this run
+writeLines(capture.output(sessionInfo()), "./results/sessionInfo_R.txt")

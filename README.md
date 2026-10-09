@@ -148,6 +148,8 @@ The analysis uses the following main libraries:
 - requests, json (for API interactions)
 
 **R (Statistical Analysis):**
+Models were fitted with R 4.5.2 and INLA 25.10.19; `4. INLA Models.R` writes the full package list of each run to `results/sessionInfo_R.txt`.
+
 - INLA (for Bayesian spatial modeling with SPDE)
 - sp, sf (for spatial data manipulation)
 - ggplot2, viridis (for visualization)
