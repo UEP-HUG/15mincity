@@ -25,7 +25,9 @@ load_data <- function() {
 }
 
 
-prepare_datasets <- function(df, df_urban) {
+prepare_datasets <- function(df, df_urban, ref_df = df) {
+  # ref_df: sample whose mean and SD define the standardization (the full
+  # sample by default; passed explicitly when df is a subset, e.g. 2015-2024)
   #Factorize age_group
   df$age_group <- as.factor(df$age_group)
   df_urban$age_group <- as.factor(df_urban$age_group)
@@ -42,15 +44,24 @@ prepare_datasets <- function(df, df_urban) {
   # because they are a separate sensitivity scope.
   continuous_vars <- c("age", 'overall_15min_city_proximity_time', 'overall_15min_city_pa_proximity_time')
   continuous_vars_std <- c("age_std", 'overall_15min_city_proximity_time_std', 'overall_15min_city_pa_proximity_time_std')
-  scaled_full <- scale(df[, continuous_vars])
-  ref_center <- attr(scaled_full, "scaled:center")
-  ref_scale  <- attr(scaled_full, "scaled:scale")
-  df[, continuous_vars_std] <- scaled_full
+  scaled_ref <- scale(ref_df[, continuous_vars])
+  ref_center <- attr(scaled_ref, "scaled:center")
+  ref_scale  <- attr(scaled_ref, "scaled:scale")
+  df[, continuous_vars_std] <- scale(df[, continuous_vars],
+                                     center = ref_center, scale = ref_scale)
   df_35[, continuous_vars_std] <- scale(df_35[, continuous_vars],
                                         center = ref_center, scale = ref_scale)
   df_urban[, continuous_vars_std] <- scale(df_urban[, continuous_vars])
   df_urban_35[, continuous_vars_std] <- scale(df_urban_35[, continuous_vars])
-  
+
+  # Category-specific proximity times (supplementary models), standardized
+  # with the full-sample mean and SD, same rule as overall PT.
+  cat_vars <- grep("^time_to_20th_", names(df), value = TRUE)
+  cat_center <- colMeans(ref_df[, cat_vars])
+  cat_scale <- apply(ref_df[, cat_vars], 2, sd)
+  df[, paste0(cat_vars, "_std")] <- scale(df[, cat_vars], center = cat_center, scale = cat_scale)
+  df_35[, paste0(cat_vars, "_std")] <- scale(df_35[, cat_vars], center = cat_center, scale = cat_scale)
+
   # Convert to spatial objects
   df <- st_as_sf(df, coords = c("E", "N"))
   df_35 <- st_as_sf(df_35, coords = c("E", "N"))
@@ -267,9 +278,12 @@ create_indices_and_projections <- function(spde_models, meshes, coords, coords_3
 
 
 create_covariates_df <- function(df) {
-  data.frame(
+  covs <- data.frame(
     b0 = 1,
-    appt_year = df$appointment_year,
+    # Survey year as categorical (one level per year)
+    appt_year = factor(df$appointment_year),
+    # 2015-2024 vs 2005-2014 (appointment_year = year - 1997), for the PT x period model
+    period = as.numeric(df$appointment_year >= 18),
     pt_all = df$overall_15min_city_proximity_time_std,
     pt_pa_pois = df$overall_15min_city_pa_proximity_time_std,
     Age = df$age_std,
@@ -281,6 +295,11 @@ create_covariates_df <- function(df) {
     bmi_cat = df$bmi_category,
     season = df$season
   )
+  # Category-specific PT columns: pt_physical, pt_culture, ...
+  for (v in grep("^time_to_20th_.*_std$", names(df), value = TRUE)) {
+    covs[[sub("^time_to_20th_(.*)_std$", "pt_\\1", v)]] <- df[[v]]
+  }
+  covs
 }
 
 prepare_covariates <- function(dfs) {
@@ -389,7 +408,11 @@ define_model_formulas <- function(spde) {
   f_m3_pt <- y ~ 0 + b0 + pt_all + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # Non-linear proximity time model
   f_m3_pt_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2") + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  # Prior sensitivity for Model 4: scaled RW2 with a PC prior on its precision, P(sigma > 1) = 0.01
+  f_m3_pt_nonlinear_pc <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", scale.model = TRUE, hyper = list(prec = list(prior = "pc.prec", param = c(1, 0.01)))) + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   f_m3_pt_pa_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_pa_pois, n=20), model="rw2") + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  # PT x period (2015-2024 vs 2005-2014); the period main effect is absorbed by the survey-year levels
+  f_m3_pt_period <- y ~ 0 + b0 + pt_all + pt_all:period + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # Modified model with interaction
   # f_m3_pt_age_interaction <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", Age_group) + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   formula_text <- "y ~ 0 + b0 + pt_all * Age_group + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model=spde)"
@@ -403,9 +426,18 @@ define_model_formulas <- function(spde) {
     f_m2_pt = f_m2_pt,
     f_m3_pt = f_m3_pt,
     f_m3_pt_nonlinear = f_m3_pt_nonlinear,
+    f_m3_pt_nonlinear_pc = f_m3_pt_nonlinear_pc,
     f_m3_pt_pa_nonlinear = f_m3_pt_pa_nonlinear,
+    f_m3_pt_period = f_m3_pt_period,
     f_m3_pt_age_interaction = f_m3_pt_age_interaction
   ))
+}
+
+# Model 3 with one category-specific PT (e.g. "pt_healthcare") in place of pt_all
+define_category_formula <- function(spde, pt_var) {
+  as.formula(paste0("y ~ 0 + b0 + ", pt_var,
+                    " + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year",
+                    " + f(spatial.field, model = spde)"))
 }
 
 
@@ -413,7 +445,7 @@ define_model_formulas <- function(spde) {
 # 5. Model Fitting
 # ============================================================================
 
-run_inla_model_gamma <- function(formula, stack, model_name = NULL) {
+run_inla_model_gamma <- function(formula, stack, model_name = NULL, config = FALSE) {
   # Extract stack name if model_name is not provided
   if (is.null(model_name)) {
     # Try to get the name from the stack
@@ -452,7 +484,7 @@ run_inla_model_gamma <- function(formula, stack, model_name = NULL) {
                  family = "gamma",
                  control.family = list(link = "log"),
                  data = inla.stack.data(stack),
-                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
+                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE, config = config),
                  control.predictor = list(A = inla.stack.A(stack)),
                  control.mode = list(restart = TRUE),
                  control.inla = list(
@@ -494,7 +526,7 @@ run_inla_model_gamma <- function(formula, stack, model_name = NULL) {
 }
 
 
-run_inla_model_binomial <- function(formula, stack, model_name = NULL) {
+run_inla_model_binomial <- function(formula, stack, model_name = NULL, config = FALSE) {
   # Extract stack name if model_name is not provided
   if (is.null(model_name)) {
     # Try to get the name from the stack
@@ -534,7 +566,7 @@ run_inla_model_binomial <- function(formula, stack, model_name = NULL) {
                  family = "binomial",  # Binomial
                  control.family = list(link = "logit"),  # Log link function
                  data = inla.stack.data(stack),
-                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE),
+                 control.compute = list(cpo = TRUE, dic = TRUE, waic = TRUE, config = config),
                  control.predictor = list(A = inla.stack.A(stack)),
                  # Add initial values for hyperparameters to help convergence
                  control.mode = list(restart = TRUE))
@@ -723,7 +755,8 @@ fit_mvpa_binary_models <- function(formulas, stacks) {
     IM1_mvpa_pt = run_inla_model_binomial(formulas$f_m1_pt, stacks$stk_mvpa_binary),
     IM2_mvpa_pt = run_inla_model_binomial(formulas$f_m2_pt, stacks$stk_mvpa_binary),
     IM3_mvpa_pt = run_inla_model_binomial(formulas$f_m3_pt, stacks$stk_mvpa_binary),
-    IM3_mvpa_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_nonlinear, stacks$stk_mvpa_binary),
+    IM3_mvpa_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_nonlinear, stacks$stk_mvpa_binary, config = TRUE),
+    IM3_mvpa_nonlinear_pc = run_inla_model_binomial(formulas$f_m3_pt_nonlinear_pc, stacks$stk_mvpa_binary, config = TRUE),
     IM3_mvpa_pa_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_pa_nonlinear, stacks$stk_mvpa_binary),
     IM3_mvpa_age_interaction = run_inla_model_binomial(formulas$f_m3_pt_age_interaction, stacks$stk_mvpa_binary)
   )
@@ -736,7 +769,8 @@ fit_mvpa_continuous_models <- function(formulas, stacks) {
     IM1_mvpa_pt = run_inla_model_gamma(formulas$f_m1_pt, stacks$stk_mvpa),
     IM2_mvpa_pt = run_inla_model_gamma(formulas$f_m2_pt, stacks$stk_mvpa),
     IM3_mvpa_pt = run_inla_model_gamma(formulas$f_m3_pt, stacks$stk_mvpa),
-    IM3_mvpa_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_nonlinear, stacks$stk_mvpa),
+    IM3_mvpa_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_nonlinear, stacks$stk_mvpa, config = TRUE),
+    IM3_mvpa_nonlinear_pc = run_inla_model_gamma(formulas$f_m3_pt_nonlinear_pc, stacks$stk_mvpa, config = TRUE),
     IM3_mvpa_pa_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_pa_nonlinear, stacks$stk_mvpa),
     IM3_mvpa_age_interaction = run_inla_model_gamma(formulas$f_m3_pt_age_interaction, stacks$stk_mvpa)
   )
@@ -749,7 +783,8 @@ fit_mobility_binary_models <- function(formulas, stacks) {
     IM1_mobility_pt = run_inla_model_binomial(formulas$f_m1_pt, stacks$stk_mobility_binary),
     IM2_mobility_pt = run_inla_model_binomial(formulas$f_m2_pt, stacks$stk_mobility_binary),
     IM3_mobility_pt = run_inla_model_binomial(formulas$f_m3_pt, stacks$stk_mobility_binary),
-    IM3_mobility_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_nonlinear, stacks$stk_mobility_binary),
+    IM3_mobility_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_nonlinear, stacks$stk_mobility_binary, config = TRUE),
+    IM3_mobility_nonlinear_pc = run_inla_model_binomial(formulas$f_m3_pt_nonlinear_pc, stacks$stk_mobility_binary, config = TRUE),
     IM3_mobility_pa_nonlinear = run_inla_model_binomial(formulas$f_m3_pt_pa_nonlinear, stacks$stk_mobility_binary),
     IM3_mobility_age_interaction = run_inla_model_binomial(formulas$f_m3_pt_age_interaction, stacks$stk_mobility_binary)
 
@@ -763,7 +798,8 @@ fit_mobility_continuous_models <- function(formulas, stacks) {
     IM1_mobility_pt = run_inla_model_gamma(formulas$f_m1_pt, stacks$stk_mobility),
     IM2_mobility_pt = run_inla_model_gamma(formulas$f_m2_pt, stacks$stk_mobility),
     IM3_mobility_pt = run_inla_model_gamma(formulas$f_m3_pt, stacks$stk_mobility),
-    IM3_mobility_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_nonlinear, stacks$stk_mobility),
+    IM3_mobility_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_nonlinear, stacks$stk_mobility, config = TRUE),
+    IM3_mobility_nonlinear_pc = run_inla_model_gamma(formulas$f_m3_pt_nonlinear_pc, stacks$stk_mobility, config = TRUE),
     IM3_mobility_pa_nonlinear = run_inla_model_gamma(formulas$f_m3_pt_pa_nonlinear, stacks$stk_mobility),
     IM3_mobility_age_interaction = run_inla_model_gamma(formulas$f_m3_pt_age_interaction, stacks$stk_mobility)
 
@@ -1648,6 +1684,85 @@ plot_nonlinear_effects <- function(models, save_path = "./results/all_pois/figur
               file.path(save_path, sprintf("nonlinear_effect_%s_data.csv", outcome_key)),
               row.names = FALSE)
   }
+}
+
+# Model 4 curves anchored at a reference PT (default 15 min) instead of the RW2
+# sum-to-zero centering, for the four hurdle parts, default vs PC prior.
+# parts: named list; each element is list(linear = <Model 3 fit>, default = <RW2 fit>,
+#   pc = <RW2 PC-prior fit>, family = "gamma" or "binomial", title = <panel title>,
+#   color = <hex>). RW2 fits must have been run with config = TRUE.
+# Effects are % change (gamma) or odds ratio (binomial) relative to the reference PT,
+# with 95% credible intervals from joint posterior samples.
+plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_samples = 1000,
+                                    save_path = "./results/all_pois/figures/") {
+  if (!dir.exists(save_path)) dir.create(save_path, recursive = TRUE)
+  re_name <- "inla.group(pt_all, n = 20)"
+
+  anchored_curve <- function(m, family) {
+    ids <- m$summary.random[[re_name]]$ID
+    minutes <- ids * pt_sd + pt_mean
+    smp <- inla.posterior.sample(n_samples, m)
+    rn <- rownames(smp[[1]]$latent)
+    idx <- grep(paste0("^", gsub("([().])", "\\\\\\1", re_name), ":"), rn)
+    f <- sapply(smp, function(s) s$latent[idx, 1])
+    ref <- which.min(abs(minutes - ref_min))
+    eff <- exp(sweep(f, 2, f[ref, ], "-"))
+    to_scale <- if (family == "gamma") function(x) 100 * (x - 1) else identity
+    d <- apply(f, 2, diff)
+    list(curve = data.frame(pt_min = minutes, ref_min = minutes[ref],
+                            effect = to_scale(rowMeans(eff)),
+                            lower = to_scale(apply(eff, 1, quantile, 0.025)),
+                            upper = to_scale(apply(eff, 1, quantile, 0.975))),
+         p_monotone = max(mean(apply(d, 2, function(x) all(x > 0))),
+                          mean(apply(d, 2, function(x) all(x < 0)))))
+  }
+
+  curves <- list(); fit_stats <- list()
+  for (p in names(parts)) {
+    P <- parts[[p]]
+    for (prior in c("default", "pc")) {
+      a <- anchored_curve(P[[prior]], P$family)
+      curves[[paste(p, prior)]] <- cbind(part = p, prior = prior, a$curve,
+                                         scale = ifelse(P$family == "gamma", "% change", "odds ratio"))
+      fit_stats[[paste(p, prior)]] <- data.frame(part = p, model = paste0("M4_rw2_", prior),
+                                                 dic = P[[prior]]$dic$dic, waic = P[[prior]]$waic$waic,
+                                                 p_monotone = a$p_monotone)
+    }
+    fit_stats[[paste(p, "linear")]] <- data.frame(part = p, model = "M3_linear",
+                                                  dic = P$linear$dic$dic, waic = P$linear$waic$waic,
+                                                  p_monotone = NA)
+  }
+  curves <- do.call(rbind, curves); fit_stats <- do.call(rbind, fit_stats)
+  write.csv(curves, file.path(save_path, "model4_anchored_curves.csv"), row.names = FALSE)
+  write.csv(fit_stats, file.path(save_path, "model4_fit_comparison.csv"), row.names = FALSE)
+
+  draw_plot <- function() {
+    par(mfrow = c(2, 2), mar = c(4.5, 4.5, 2.5, 1), family = "Helvetica")
+    for (p in names(parts)) {
+      P <- parts[[p]]
+      d0 <- curves[curves$part == p & curves$prior == "default", ]
+      d1 <- curves[curves$part == p & curves$prior == "pc", ]
+      null_line <- ifelse(P$family == "gamma", 0, 1)
+      plot(d0$pt_min, d0$effect, type = "n", ylim = range(c(d0$lower, d0$upper, d1$effect)),
+           xlab = "Proximity Time (min)", ylab = d0$scale[1], main = P$title,
+           adj = 0, cex.main = 1, font.main = 1, las = 1)
+      grid(lty = "dotted", col = "gray90")
+      polygon(c(d0$pt_min, rev(d0$pt_min)), c(d0$lower, rev(d0$upper)),
+              col = adjustcolor(P$color, alpha.f = 0.2), border = NA)
+      lines(d0$pt_min, d0$effect, col = P$color, lwd = 2)
+      lines(d1$pt_min, d1$effect, col = "gray30", lwd = 1.5, lty = 2)
+      abline(h = null_line, lty = 2, col = "gray50")
+      abline(v = d0$ref_min[1], lty = 3, col = "gray50")
+    }
+    legend("topleft", bty = "n", cex = 0.8, lwd = c(2, 1.5), lty = c(1, 2),
+           col = c("gray10", "gray30"), legend = c("Default prior (95% CrI)", "PC prior"))
+  }
+  png(file.path(save_path, "model4_anchored_curves.png"), width = 2000, height = 1700, res = 200)
+  draw_plot(); dev.off()
+  pdf(file.path(save_path, "model4_anchored_curves.pdf"), width = 10, height = 8.5)
+  draw_plot(); dev.off()
+  cat("Saved Model 4 anchored curves and fit comparison to", save_path, "\n")
+  invisible(list(curves = curves, fit_stats = fit_stats))
 }
 
 plot_predicted_values <- function(model, df, canton_ge, variable_name) {
