@@ -1695,8 +1695,9 @@ plot_nonlinear_effects <- function(models, save_path = "./results/all_pois/figur
 #   color = <hex>). RW2 fits must have been run with config = TRUE.
 # Effects are % change (gamma) or odds ratio (binomial) relative to the reference PT,
 # with 95% credible intervals from joint posterior samples.
+# pt_values: participants' PT (min), drawn as a rug to show where the data are.
 plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_samples = 1000,
-                                    save_path = "./results/all_pois/figures/") {
+                                    save_path = "./results/all_pois/figures/", pt_values = NULL) {
   if (!dir.exists(save_path)) dir.create(save_path, recursive = TRUE)
   re_name <- "inla.group(pt_all, n = 20)"
 
@@ -1738,33 +1739,44 @@ plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_sampl
   write.csv(curves, file.path(save_path, "model4_anchored_curves.csv"), row.names = FALSE)
   write.csv(fit_stats, file.path(save_path, "model4_fit_comparison.csv"), row.names = FALSE)
 
-  draw_plot <- function() {
-    par(mfrow = c(2, 2), mar = c(4.5, 4.5, 2.5, 1), family = "Helvetica")
-    for (p in names(parts)) {
-      P <- parts[[p]]
-      d0 <- curves[curves$part == p & curves$prior == "default", ]
-      d1 <- curves[curves$part == p & curves$prior == "pc", ]
-      null_line <- ifelse(P$family == "gamma", 0, 1)
-      plot(d0$pt_min, d0$effect, type = "n", ylim = range(c(d0$lower, d0$upper, d1$effect)),
-           xlab = "Proximity time (min)", ylab = d0$scale[1], main = P$title,
-           adj = 0, cex.main = 1, font.main = 1, las = 1)
-      grid(lty = "dotted", col = "gray90")
-      polygon(c(d0$pt_min, rev(d0$pt_min)), c(d0$lower, rev(d0$upper)),
-              col = adjustcolor(P$color, alpha.f = 0.2), border = NA)
-      lines(d0$pt_min, d0$effect, col = P$color, lwd = 2)
-      lines(d1$pt_min, d1$effect, col = "gray30", lwd = 1.5, lty = 2)
-      abline(h = null_line, lty = 2, col = "gray50")
-      abline(v = d0$ref_min[1], lty = 3, col = "gray50")
-    }
-    legend("topleft", bty = "n", cex = 0.8, lwd = c(2, 1.5), lty = c(1, 2),
-           col = c("gray10", "gray30"), legend = c("Default prior (95% CI)", "PC prior"))
-  }
-  png(file.path(save_path, "model4_anchored_curves.png"), width = 2000, height = 1700, res = 200)
-  draw_plot(); dev.off()
-  pdf(file.path(save_path, "model4_anchored_curves.pdf"), width = 10, height = 8.5)
-  draw_plot(); dev.off()
+  meta <- lapply(parts, function(P) P[c("family", "title", "color")])
+  # Figure 3: default prior; Figure S3: PC prior (sensitivity analysis)
+  plot_anchored_curves(curves, meta, "default", pt_values, save_path, "model4_anchored_curves")
+  plot_anchored_curves(curves, meta, "pc", pt_values, save_path, "model4_anchored_curves_pc")
   cat("Saved Model 4 anchored curves and fit comparison to", save_path, "\n")
   invisible(list(curves = curves, fit_stats = fit_stats))
+}
+
+# Draws the anchored Model 4 curves for one prior (2 x 2 panels), with 95% credible
+# intervals and, if pt_values is given, a rug of participants' PT on the x-axis.
+# curves: output of plot_nonlinear_anchored (or its saved model4_anchored_curves.csv).
+# meta: named list per part with family, title and color.
+plot_anchored_curves <- function(curves, meta, prior = "default", pt_values = NULL,
+                                 save_path = "./results/all_pois/figures/", file_stub = "model4_anchored_curves") {
+  label <- ifelse(prior == "default", "Default prior (95% CI)", "PC prior (95% CI)")
+  draw_plot <- function() {
+    par(mfrow = c(2, 2), mar = c(4.5, 4.5, 2.5, 1), family = "Helvetica")
+    for (p in names(meta)) {
+      P <- meta[[p]]
+      d <- curves[curves$part == p & curves$prior == prior, ]
+      null_line <- ifelse(P$family == "gamma", 0, 1)
+      plot(d$pt_min, d$effect, type = "n", ylim = range(c(d$lower, d$upper)),
+           xlab = "Proximity time (min)", ylab = d$scale[1], main = P$title,
+           adj = 0, cex.main = 1, font.main = 1, las = 1)
+      grid(lty = "dotted", col = "gray90")
+      polygon(c(d$pt_min, rev(d$pt_min)), c(d$lower, rev(d$upper)),
+              col = adjustcolor(P$color, alpha.f = 0.2), border = NA)
+      lines(d$pt_min, d$effect, col = P$color, lwd = 2)
+      abline(h = null_line, lty = 2, col = "gray50")
+      abline(v = d$ref_min[1], lty = 3, col = "gray50")
+      if (!is.null(pt_values)) rug(pt_values, side = 1, ticksize = 0.03, col = adjustcolor("gray20", alpha.f = 0.15))
+    }
+    legend("topleft", bty = "n", cex = 0.8, lwd = 2, col = "gray10", legend = label)
+  }
+  png(file.path(save_path, paste0(file_stub, ".png")), width = 2000, height = 1700, res = 200)
+  draw_plot(); dev.off()
+  pdf(file.path(save_path, paste0(file_stub, ".pdf")), width = 10, height = 8.5)
+  draw_plot(); dev.off()
 }
 
 plot_predicted_values <- function(model, df, canton_ge, variable_name) {

@@ -222,7 +222,7 @@ mean_pt_full <- mean(dfs$df$overall_15min_city_proximity_time)
 sd_pt_full  <- sd(dfs$df$overall_15min_city_proximity_time)
 
 # Model 4 (Figure 3): RW2 curves anchored at PT = 15 min for the four hurdle
-# parts, default prior with 95% CrI and PC-prior sensitivity overlaid
+# parts, default prior with 95% CI; PC-prior sensitivity in a separate figure (Figure S3)
 model4 <- plot_nonlinear_anchored(
   list(
     am_binary   = list(linear = mobility_binary_models$IM3_mobility_pt,
@@ -242,7 +242,7 @@ model4 <- plot_nonlinear_anchored(
                        pc = mvpa_continuous_models$IM3_mvpa_nonlinear_pc,
                        family = "gamma", title = "D) Leisure-time MVPA, time", color = "#feb24c")),
   pt_mean = mean_pt_full, pt_sd = sd_pt_full, ref_min = 15,
-  save_path = "./results/all_pois/figures")
+  save_path = "./results/all_pois/figures", pt_values = dfs$df$overall_15min_city_proximity_time)
 model4$fit_stats               
 
 exp(mobility_binary_35_models$IM3_mobility_binary_pt_35$summary.fixed["pt_all", c("mean","0.025quant","0.975quant")])                                                                                             
