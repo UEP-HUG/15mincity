@@ -290,6 +290,8 @@ create_covariates_df <- function(df) {
     Age_group = df$age_group,
     Sex = df$SEX_F,
     work_status = df$employment_coded,
+    # Current paid work (1/0), for the working-status sensitivity check
+    work_current = factor(df$working_status),
     educ_lvl = df$education_coded,
     smoking_status = df$smoking_status,
     bmi_cat = df$bmi_category,
@@ -404,18 +406,18 @@ define_model_formulas <- function(spde) {
   f_m0_pt <- y ~ 0 + b0 + f(spatial.field, model = spde)
   # Models with proximity time
   f_m1_pt <- y ~ 0 + b0 + pt_all + Age + Sex + f(spatial.field, model = spde)
-  f_m2_pt <- y ~ 0 + b0 + pt_all + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + f(spatial.field, model = spde)
-  f_m3_pt <- y ~ 0 + b0 + pt_all + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  f_m2_pt <- y ~ 0 + b0 + pt_all + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + f(spatial.field, model = spde)
+  f_m3_pt <- y ~ 0 + b0 + pt_all + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # Non-linear proximity time model
-  f_m3_pt_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2") + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  f_m3_pt_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2") + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # Prior sensitivity for Model 4: scaled RW2 with a PC prior on its precision, P(sigma > 1) = 0.01
-  f_m3_pt_nonlinear_pc <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", scale.model = TRUE, hyper = list(prec = list(prior = "pc.prec", param = c(1, 0.01)))) + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
-  f_m3_pt_pa_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_pa_pois, n=20), model="rw2") + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  f_m3_pt_nonlinear_pc <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", scale.model = TRUE, hyper = list(prec = list(prior = "pc.prec", param = c(1, 0.01)))) + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  f_m3_pt_pa_nonlinear <- y ~ 0 + b0 + f(inla.group(pt_pa_pois, n=20), model="rw2") + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # PT x period (2015-2024 vs 2005-2014); the period main effect is absorbed by the survey-year levels
-  f_m3_pt_period <- y ~ 0 + b0 + pt_all + pt_all:period + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  f_m3_pt_period <- y ~ 0 + b0 + pt_all + pt_all:period + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
   # Modified model with interaction
-  # f_m3_pt_age_interaction <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", Age_group) + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
-  formula_text <- "y ~ 0 + b0 + pt_all * Age_group + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model=spde)"
+  # f_m3_pt_age_interaction <- y ~ 0 + b0 + f(inla.group(pt_all, n=20), model="rw2", Age_group) + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model = spde)
+  formula_text <- "y ~ 0 + b0 + pt_all * Age_group + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year + f(spatial.field, model=spde)"
   f_m3_pt_age_interaction <- as.formula(formula_text)
   
   
@@ -436,7 +438,7 @@ define_model_formulas <- function(spde) {
 # Model 3 with one category-specific PT (e.g. "pt_healthcare") in place of pt_all
 define_category_formula <- function(spde, pt_var) {
   as.formula(paste0("y ~ 0 + b0 + ", pt_var,
-                    " + Age + Sex + work_status + educ_lvl + smoking_status + bmi_cat + season + appt_year",
+                    " + Age + Sex + work_status + work_current + educ_lvl + smoking_status + bmi_cat + season + appt_year",
                     " + f(spatial.field, model = spde)"))
 }
 
@@ -1744,7 +1746,7 @@ plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_sampl
       d1 <- curves[curves$part == p & curves$prior == "pc", ]
       null_line <- ifelse(P$family == "gamma", 0, 1)
       plot(d0$pt_min, d0$effect, type = "n", ylim = range(c(d0$lower, d0$upper, d1$effect)),
-           xlab = "Proximity Time (min)", ylab = d0$scale[1], main = P$title,
+           xlab = "Proximity time (min)", ylab = d0$scale[1], main = P$title,
            adj = 0, cex.main = 1, font.main = 1, las = 1)
       grid(lty = "dotted", col = "gray90")
       polygon(c(d0$pt_min, rev(d0$pt_min)), c(d0$lower, rev(d0$upper)),
@@ -1755,7 +1757,7 @@ plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_sampl
       abline(v = d0$ref_min[1], lty = 3, col = "gray50")
     }
     legend("topleft", bty = "n", cex = 0.8, lwd = c(2, 1.5), lty = c(1, 2),
-           col = c("gray10", "gray30"), legend = c("Default prior (95% CrI)", "PC prior"))
+           col = c("gray10", "gray30"), legend = c("Default prior (95% CI)", "PC prior"))
   }
   png(file.path(save_path, "model4_anchored_curves.png"), width = 2000, height = 1700, res = 200)
   draw_plot(); dev.off()
@@ -2158,7 +2160,7 @@ create_forest_plot <- function(all_models, parameter = "pt_all", save_path = NUL
       breaks = seq(from = -8, to = 8, by = 1)
     ) +
     labs(
-      x = "Percentage change per SD increase in Proximity Time",
+      x = "Percentage change per SD increase in proximity time",
       y = NULL,
     ) +
     theme_bw(base_size = 10) +

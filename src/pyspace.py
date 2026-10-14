@@ -358,15 +358,15 @@ def plotGetisMap_ge(db, col, p_001=False,markersize_s=5, markersize_l=8, commune
 
 
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
 
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     cantons_to_map = cantons[cantons.NAME == 'Genève']
     communes = communes[communes.KANTONSNUM.isin(cantons_to_map.KANTONSNUM)]
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
     lake = lake.to_crs(2056)
 
@@ -545,15 +545,15 @@ def plotGetisMap_ge_simple(db, col,markersize_s=1, markersize_l=5, buffer=600, c
     ns_dissolved = unary_union(ns.geometry).simplify(5)
 
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
 
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     cantons_to_map = cantons[cantons.NAME == 'Genève']
     communes = communes[communes.KANTONSNUM.isin(cantons_to_map.KANTONSNUM)]
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
     lake = lake.to_crs(2056)
 
@@ -725,9 +725,9 @@ def plotGetisMap(db, col, p_001=False,markersize_s=1, markersize_l=5, commune_na
 
 
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     cantons_to_map = gpd.sjoin(cantons[['UUID','NAME','geometry']], db[['geometry']], predicate='contains', how='left')
@@ -735,8 +735,8 @@ def plotGetisMap(db, col, p_001=False,markersize_s=1, markersize_l=5, commune_na
     # cantons_to_map = cantons_to_map[cantons_to_map.NAME == 'Genève']
     # communes = communes[communes.KANTONSNUM.isin(cantons_to_map.KANTONSNUM)]
     communes = gpd.sjoin(communes, cantons_to_map[['geometry']], predicate='intersects').drop('index_right', axis=1)
-    lakes = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/input/g2s15.shp', engine='pyogrio')
-    # lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lakes = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/input/g2s15.shp', engine='pyogrio')
+    # lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     # lake.NOM = ['Lake Geneva', '', '']
     lakes = lakes.to_crs(2056)
     # lake = lake.to_crs(2056)
@@ -789,13 +789,13 @@ def plotLISAMap_polygons(db, col, letter, commune_name=False, add_lakes = False)
 
 
     if add_lakes:
-        lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+        lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
         lake.NOM = ['Lake Geneva', '', '']
-        lakes = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/input/g2s15.shp', engine='pyogrio')
+        lakes = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/input/g2s15.shp', engine='pyogrio')
         lakes = lakes[lakes.GMDNAME.isin(['Lac de Joux','Lac Léman','Lac de la Gruyère','Lac de Neuchâtel'])]
         lakes = lakes.to_crs(2056)
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
     # communes = communes[communes.KANTONSNUM == 25]
     communes = communes.to_crs(2056)
     communes_to_map = gpd.sjoin(db, communes, predicate='intersects')
@@ -871,13 +871,13 @@ def plotLISA_points(db, col, letter, commune_name=False):
     db : GeodataFrame
     y : Series containing Getis classes"""
 
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
     # communes = gpd.read_file('../GeoSalt/Data/Raw Data/communes_ge.geojson',driver = 'GeoJSON', engine='pyogrio')
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     kantonnum_to_name = cantons.set_index('KANTONSNUM')['NAME'].to_dict()
@@ -938,13 +938,13 @@ def plotLISAMap_points_ordered(db, col, ylabel, letter, binary=False):
     fig, ax = plt.subplots(1, figsize=(12, 12))
     hmap = colors.ListedColormap(['#bdbdbd', '#b2182b', '#d1e5f0', '#2166ac', '#ef8a62'])
 
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
     # communes = gpd.read_file('../GeoSalt/Data/Raw Data/communes_ge.geojson',driver = 'GeoJSON', engine='pyogrio')
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     kantonnum_to_name = cantons.set_index('KANTONSNUM')['NAME'].to_dict()
@@ -1063,13 +1063,13 @@ def masked_lisa_cluster_polygons(gdf, moran_loc, attribute, quadrant, p, scheme,
                  legend_kwds={'loc': 'upper left', 'fontsize': 12, 'title': 'LISA Classes', 'title_fontsize': 14,
                               'bbox_to_anchor': (0.82, 0.95)})
 
-    df_lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    df_lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     df_lake.NOM = ['Lake Geneva', '', '']
     # communes = gpd.read_file('../GeoSalt/Data/Raw Data/communes_ge.geojson',driver = 'GeoJSON', engine='pyogrio')
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
     df_communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, df_communes = cantons.to_crs(2056), df_communes.to_crs(2056)
     kantonnum_to_name = cantons.set_index('KANTONSNUM')['NAME'].to_dict()
@@ -1111,13 +1111,13 @@ def masked_lisa_cluster_points(gdf, moran_loc, attribute, quadrant, p, scheme, l
                  legend_kwds={'loc': 'upper left', 'fontsize': 12, 'title': 'LISA Classes', 'title_fontsize': 14,
                               'bbox_to_anchor': (0.82, 0.95)}, zorder=3)
 
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
     # communes = gpd.read_file('../GeoSalt/Data/Raw Data/communes_ge.geojson',driver = 'GeoJSON', engine='pyogrio')
     cantons = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp', engine='pyogrio')
     communes = gpd.read_file(
-        '/Users/david/Dropbox/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
+        '/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/Data/Databases/SITG/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_HOHEITSGEBIET.shp', engine='pyogrio')
 
     cantons, communes = cantons.to_crs(2056), communes.to_crs(2056)
     kantonnum_to_name = cantons.set_index('KANTONSNUM')['NAME'].to_dict()
@@ -1149,7 +1149,7 @@ def masked_lisa_cluster_points(gdf, moran_loc, attribute, quadrant, p, scheme, l
 def masked_choropleth_lisa(gdf, moran_loc, attribute, quadrant, scheme, cmap, legend_title, legend=True):
     fig, ax = plt.subplots(figsize=(9, 9))
 
-    lake = gpd.read_file('/Users/david/Dropbox/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
+    lake = gpd.read_file('/Users/david/Library/CloudStorage/OneDrive-HOPITAUXUNIVERSITAIRESDEGENEVE/PhD/GitHub/COVID19/Data/Mapping/lake.geojson', engine='pyogrio')
     lake.NOM = ['Lake Geneva', '', '']
 
     gdf.plot(column=attribute, scheme=scheme, cmap=cmap,
