@@ -104,12 +104,17 @@ part_titles <- c(am_binary = "A) Non-occupational AM, participation (OR per SD)"
                  mvpa_binary = "C) Leisure-time MVPA, participation (OR per SD)",
                  mvpa_gamma = "D) Leisure-time MVPA, time (% change per SD)")
 cat_res$panel <- factor(part_titles[cat_res$part], levels = part_titles)
-cat_res$term <- factor(cat_res$term, levels = rev(c("overall", categories)))
+cat_labels <- c(overall = "Composite", physical = "Physical activity facilities", culture = "Culture",
+                education = "Education", healthcare = "Healthcare", services = "Services",
+                transport = "Transport", outdoor = "Outdoor spaces", supplies = "Daily supplies",
+                restaurant = "Restaurants")
+cat_res$composite <- cat_res$term == "overall"
+cat_res$term <- factor(cat_labels[cat_res$term], levels = rev(cat_labels[c("overall", categories)]))
 cat_res$null <- ifelse(cat_res$scale == "OR per SD", 1, 0)
 supp_plot <- ggplot(cat_res, aes(x = estimate, y = term)) +
   geom_vline(aes(xintercept = null), linetype = "dashed", colour = "gray50") +
   geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2, colour = "gray30") +
-  geom_point(aes(shape = term == "overall"), size = 2) +
+  geom_point(aes(shape = composite), size = 2) +
   scale_shape_manual(values = c(`TRUE` = 15, `FALSE` = 16), guide = "none") +
   facet_wrap(~ panel, scales = "free_x", ncol = 2) +
   labs(x = "Association per SD increase in proximity time", y = NULL) +
