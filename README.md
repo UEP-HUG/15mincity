@@ -148,6 +148,8 @@ The analysis uses the following main libraries:
 - requests, json (for API interactions)
 
 **R (Statistical Analysis):**
+Models were fitted with R 4.5.2 and INLA 25.10.19; `4. INLA Models.R` writes the full package list of each run to `results/sessionInfo_R.txt`.
+
 - INLA (for Bayesian spatial modeling with SPDE)
 - sp, sf (for spatial data manipulation)
 - ggplot2, viridis (for visualization)
@@ -236,7 +238,7 @@ For questions about this code, please contact the corresponding authors.
 If you use this code in your research, please cite our paper:
 
 ```
-De Ridder, D., Mechoullam, S., Lamour, J., Joost, S., Guessous, I., Specchio-COVID19 study group, & Nehme, M. (2025). A 15-minute city framework to active mobility and physical activity: A cross-sectional study in the Canton of Geneva, Switzerland.
+De Ridder, D., Mechoullam, S., Lamour, J., Joost, S., Guessous, I., & Nehme, M. The 15-minute city and physical activity: opposing associations with active mobility and leisure-time activity. Submitted.
 ```
 
 
