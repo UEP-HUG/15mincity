@@ -238,7 +238,7 @@ For questions about this code, please contact the corresponding authors.
 If you use this code in your research, please cite our paper:
 
 ```
-De Ridder, D., Mechoullam, S., Lamour, J., Joost, S., Guessous, I., Specchio-COVID19 study group, & Nehme, M. (2025). A 15-minute city framework to active mobility and physical activity: A cross-sectional study in the Canton of Geneva, Switzerland.
+De Ridder, D., Mechoullam, S., Lamour, J., Joost, S., Guessous, I., & Nehme, M. The 15-minute city and physical activity: opposing associations with active mobility and leisure-time activity. Submitted.
 ```
 
 
