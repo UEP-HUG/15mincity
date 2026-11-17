@@ -1726,7 +1726,7 @@ plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_sampl
     for (prior in c("default", "pc")) {
       a <- anchored_curve(P[[prior]], P$family)
       curves[[paste(p, prior)]] <- cbind(part = p, prior = prior, a$curve,
-                                         scale = ifelse(P$family == "gamma", "% change", "odds ratio"))
+                                         scale = ifelse(P$family == "gamma", "% change", "Odds ratio"))
       fit_stats[[paste(p, prior)]] <- data.frame(part = p, model = paste0("M4_rw2_", prior),
                                                  dic = P[[prior]]$dic$dic, waic = P[[prior]]$waic$waic,
                                                  p_monotone = a$p_monotone)
@@ -1753,7 +1753,6 @@ plot_nonlinear_anchored <- function(parts, pt_mean, pt_sd, ref_min = 15, n_sampl
 # meta: named list per part with family, title and color.
 plot_anchored_curves <- function(curves, meta, prior = "default", pt_values = NULL,
                                  save_path = "./results/all_pois/figures/", file_stub = "model4_anchored_curves") {
-  label <- ifelse(prior == "default", "Default prior (95% CI)", "PC prior (95% CI)")
   draw_plot <- function() {
     par(mfrow = c(2, 2), mar = c(4.5, 4.5, 2.5, 1), family = "Helvetica")
     for (p in names(meta)) {
@@ -1761,8 +1760,8 @@ plot_anchored_curves <- function(curves, meta, prior = "default", pt_values = NU
       d <- curves[curves$part == p & curves$prior == prior, ]
       null_line <- ifelse(P$family == "gamma", 0, 1)
       plot(d$pt_min, d$effect, type = "n", ylim = range(c(d$lower, d$upper)),
-           xlab = "Proximity time (min)", ylab = d$scale[1], main = P$title,
-           adj = 0, cex.main = 1, font.main = 1, las = 1)
+           xlab = "Proximity time (min)", ylab = d$scale[1], las = 1)
+      title(main = P$title, adj = 0, cex.main = 1, font.main = 1)
       grid(lty = "dotted", col = "gray90")
       polygon(c(d$pt_min, rev(d$pt_min)), c(d$lower, rev(d$upper)),
               col = adjustcolor(P$color, alpha.f = 0.2), border = NA)
@@ -1771,7 +1770,6 @@ plot_anchored_curves <- function(curves, meta, prior = "default", pt_values = NU
       abline(v = d$ref_min[1], lty = 3, col = "gray50")
       if (!is.null(pt_values)) rug(pt_values, side = 1, ticksize = 0.03, col = adjustcolor("gray20", alpha.f = 0.15))
     }
-    legend("topleft", bty = "n", cex = 0.8, lwd = 2, col = "gray10", legend = label)
   }
   png(file.path(save_path, paste0(file_stub, ".png")), width = 2000, height = 1700, res = 200)
   draw_plot(); dev.off()
